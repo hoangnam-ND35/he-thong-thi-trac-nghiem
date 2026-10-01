@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập · Thi trắc nghiệm</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <a class="skip" href="#login-form">Tới biểu mẫu đăng nhập</a>
+  <main class="login-screen">
+    <section class="login-hero">
+      <div>
+        <div class="seal" id="brand-seal">THI</div>
+        <p class="brand-kicker" id="brand-level">Đại học</p>
+        <h1 id="brand-name">Phòng thi trực tuyến</h1>
+        <p id="brand-motto">Trộn câu hỏi, trộn đáp án, tính giờ theo máy chủ và vẫn giữ bài khi mất kết nối.</p>
+        <div class="mechanism-list">
+          <div><strong>Trộn đề</strong><span>Mỗi sinh viên một mã đề. Lưu mã câu và mã đáp án.</span></div>
+          <div><strong>Đồng hồ máy chủ</strong><span>Không lấy giờ máy tính của sinh viên làm chuẩn.</span></div>
+          <div><strong>Lưu khi mất mạng</strong><span>Câu trả lời nằm trên máy, đồng bộ lại khi có mạng.</span></div>
+          <div><strong>Tự nộp bài</strong><span>Hết giờ thì khóa bài và nộp, kể cả lúc đang ngoại tuyến.</span></div>
+        </div>
+      </div>
+      <p id="brand-foot">Mẫu phòng thi giao được cho đại học, cao đẳng, phổ thông hoặc trung tâm.</p>
+    </section>
+    <section class="login-panel">
+      <form id="login-form" class="card login-card stack">
+        <div>
+          <h2>Đăng nhập</h2>
+          <p class="muted">Nhập tài khoản đã có, hoặc đăng ký nếu bạn chưa có.</p>
+        </div>
+        <label>Tên đăng nhập<input name="username" autocomplete="username" required></label>
+        <label>Mật khẩu
+          <span class="secret">
+            <input name="password" type="password" autocomplete="current-password" required>
+            <button class="eye" type="button" aria-label="Hiện mật khẩu" aria-pressed="false">
+              <svg class="open" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+              <svg class="shut" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 5l16 14M9.5 9.8A3 3 0 0 0 12 15a3 3 0 0 0 2.3-1.1M7 7.2C5.2 8.4 3.6 10.4 2.5 12c1.5 2.6 5 6 9.5 6 1.5 0 2.9-.4 4.1-1M10 5.4A12 12 0 0 1 12 5.2c6.5 0 9.5 6.8 9.5 6.8a16 16 0 0 1-2.8 3.4"/></svg>
+            </button>
+          </span>
+        </label>
+        <button class="btn primary" type="submit">Vào hệ thống</button>
+        <p id="login-error" class="muted" role="alert"></p>
+        <p class="auth-switch">Chưa có tài khoản? <a href="/register.html">Đăng ký</a></p>
+      </form>
+    </section>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/pages/login.js"></script>
+</body>
+</html>

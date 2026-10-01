@@ -1,0 +1,8 @@
+build/
+data/
+*.o
+*.exe
+*.db
+*.db-wal
+*.db-shm
+.vs/

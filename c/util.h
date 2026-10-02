@@ -6,15 +6,23 @@
 #ifndef _WIN32
 #include <pthread.h>
 #include <strings.h>
+#include <time.h>
 #include <unistd.h>
 #define MAX_PATH 512
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
 typedef pthread_mutex_t CRITICAL_SECTION;
 #define InitializeCriticalSection(lock) pthread_mutex_init((lock), NULL)
+#define DeleteCriticalSection(lock) pthread_mutex_destroy(lock)
 #define EnterCriticalSection(lock) pthread_mutex_lock(lock)
 #define LeaveCriticalSection(lock) pthread_mutex_unlock(lock)
-#define Sleep(ms) usleep((useconds_t)(ms) * 1000u)
+static inline void oes_sleep_ms(unsigned ms) {
+    struct timespec ts;
+    ts.tv_sec = (time_t)(ms / 1000u);
+    ts.tv_nsec = (long)(ms % 1000u) * 1000000L;
+    nanosleep(&ts, NULL);
+}
+#define Sleep(ms) oes_sleep_ms((unsigned)(ms))
 #endif
 
 void paths_init(void);

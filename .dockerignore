@@ -1,0 +1,6 @@
+build/
+data/
+.git/
+*.exe
+*.o
+*.zip

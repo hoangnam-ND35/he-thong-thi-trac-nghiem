@@ -12,6 +12,7 @@
 #include <direct.h>
 #include <windows.h>
 #else
+#include <dirent.h>
 #include <sys/stat.h>
 #endif
 
@@ -19,14 +20,36 @@ char g_root[MAX_PATH];
 
 void paths_init(void) {
     char full[MAX_PATH];
+#ifdef _WIN32
     const char* guess = ".";
     if (!file_exists("web\\index.html") && file_exists("..\\web\\index.html")) guess = "..";
     GetFullPathNameA(guess, MAX_PATH, full, NULL);
     copy_str(g_root, sizeof(g_root), full);
+#else
+    if (!getcwd(full, sizeof(full))) copy_str(full, sizeof(full), ".");
+    if (!file_exists("web/index.html") && file_exists("../web/index.html")) {
+        size_t n = strlen(full);
+        if (n + 3 < sizeof(full)) {
+            full[n] = '/';
+            full[n + 1] = '.';
+            full[n + 2] = '.';
+            full[n + 3] = 0;
+        }
+    }
+    copy_str(g_root, sizeof(g_root), full);
+#endif
 }
 
 void path_under(char* out, size_t cap, const char* relative) {
-    snprintf(out, cap, "%s\\%s", g_root, relative);
+    char* slash;
+#ifdef _WIN32
+    snprintf(out, cap, "%s\\%s", g_root, relative ? relative : "");
+#else
+    snprintf(out, cap, "%s/%s", g_root, relative ? relative : "");
+    for (slash = out; *slash; slash++) {
+        if (*slash == '\\') *slash = '/';
+    }
+#endif
 }
 
 long long now_sec(void) {
@@ -37,7 +60,12 @@ void random_hex(size_t nbytes, char* out) {
     static const char* hex = "0123456789abcdef";
     size_t i;
     for (i = 0; i < nbytes; i++) {
-        unsigned value = ((unsigned)rand() ^ (GetTickCount() + (unsigned)i * 131u)) & 255u;
+#ifdef _WIN32
+        unsigned tick = GetTickCount();
+#else
+        unsigned tick = (unsigned)time(NULL);
+#endif
+        unsigned value = ((unsigned)rand() ^ (tick + (unsigned)i * 131u)) & 255u;
         out[i * 2] = hex[value >> 4];
         out[i * 2 + 1] = hex[value & 15];
     }
@@ -141,7 +169,77 @@ int file_exists(const char* path) {
 }
 
 void ensure_dir(const char* path) {
+#ifdef _WIN32
     _mkdir(path);
+#else
+    mkdir(path, 0755);
+#endif
+}
+
+int list_subdirs(const char* directory, char names[][32], int cap) {
+    int count = 0;
+#ifdef _WIN32
+    char pattern[MAX_PATH];
+    WIN32_FIND_DATAA found;
+    HANDLE handle;
+    snprintf(pattern, sizeof(pattern), "%s\\*", directory);
+    handle = FindFirstFileA(pattern, &found);
+    if (handle == INVALID_HANDLE_VALUE) return 0;
+    do {
+        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && strcmp(found.cFileName, ".") != 0 && strcmp(found.cFileName, "..") != 0) {
+            if (count < cap) copy_str(names[count++], 32, found.cFileName);
+        }
+    } while (FindNextFileA(handle, &found));
+    FindClose(handle);
+#else
+    DIR* dir = opendir(directory);
+    struct dirent* item;
+    if (!dir) return 0;
+    while ((item = readdir(dir)) != NULL) {
+        char child[MAX_PATH];
+        struct stat info;
+        if (strcmp(item->d_name, ".") == 0 || strcmp(item->d_name, "..") == 0) continue;
+        snprintf(child, sizeof(child), "%s/%s", directory, item->d_name);
+        if (stat(child, &info) == 0 && S_ISDIR(info.st_mode)) {
+            if (count < cap) copy_str(names[count++], 32, item->d_name);
+        }
+    }
+    closedir(dir);
+#endif
+    return count;
+}
+
+void remove_dir_contents(const char* directory) {
+#ifdef _WIN32
+    char pattern[MAX_PATH];
+    WIN32_FIND_DATAA found;
+    HANDLE handle;
+    snprintf(pattern, sizeof(pattern), "%s\\*", directory);
+    handle = FindFirstFileA(pattern, &found);
+    if (handle != INVALID_HANDLE_VALUE) {
+        do {
+            char child[MAX_PATH];
+            if (strcmp(found.cFileName, ".") == 0 || strcmp(found.cFileName, "..") == 0) continue;
+            snprintf(child, sizeof(child), "%s\\%s", directory, found.cFileName);
+            DeleteFileA(child);
+        } while (FindNextFileA(handle, &found));
+        FindClose(handle);
+    }
+    RemoveDirectoryA(directory);
+#else
+    DIR* dir = opendir(directory);
+    struct dirent* item;
+    if (dir) {
+        while ((item = readdir(dir)) != NULL) {
+            char child[MAX_PATH];
+            if (strcmp(item->d_name, ".") == 0 || strcmp(item->d_name, "..") == 0) continue;
+            snprintf(child, sizeof(child), "%s/%s", directory, item->d_name);
+            remove(child);
+        }
+        closedir(dir);
+    }
+    rmdir(directory);
+#endif
 }
 
 int query_get(const char* query, const char* key, char* out, size_t cap) {

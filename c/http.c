@@ -4,7 +4,6 @@
 #include "db.h"
 #include "util.h"
 
-#include <process.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,9 +11,25 @@
 #include <ctype.h>
 
 #ifdef _WIN32
+#include <process.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#define OES_THREAD_RET unsigned
+#define OES_THREAD_CALL __stdcall
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
+#define SOCKET int
+#define INVALID_SOCKET (-1)
+#define closesocket close
+#define OES_THREAD_RET void*
+#define OES_THREAD_CALL
 #endif
 
 #define MAX_ROUTES 96
@@ -162,12 +177,18 @@ static void take_cookie(const char* cookie, char* out, size_t cap) {
 }
 
 static long long file_mtime(const char* path) {
+#ifdef _WIN32
     WIN32_FILE_ATTRIBUTE_DATA info;
     ULARGE_INTEGER stamp;
     if (!GetFileAttributesExA(path, GetFileExInfoStandard, &info)) return 0;
     stamp.LowPart = info.ftLastWriteTime.dwLowDateTime;
     stamp.HighPart = info.ftLastWriteTime.dwHighDateTime;
     return (long long)stamp.QuadPart;
+#else
+    struct stat info;
+    if (stat(path, &info) != 0) return 0;
+    return (long long)info.st_mtime;
+#endif
 }
 
 static int serve_static(const char* url_path, Response* response) {
@@ -305,7 +326,7 @@ static void write_response(SOCKET sock, Response* response, long long elapsed_ms
     if (response->body && response->body_len > 0) send_all(sock, response->body, response->body_len);
 }
 
-static unsigned __stdcall client_thread(void* arg) {
+static OES_THREAD_RET OES_THREAD_CALL client_thread(void* arg) {
     SOCKET sock = (SOCKET)(intptr_t)arg;
     char* buf = (char*)malloc(MAX_HEADER);
     int used = 0;
@@ -315,10 +336,15 @@ static unsigned __stdcall client_thread(void* arg) {
     char header_copy[8192];
     char cookie[512];
     int content_length = 0;
+#ifdef _WIN32
     LARGE_INTEGER started;
     LARGE_INTEGER freq;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&started);
+#else
+    struct timespec started;
+    clock_gettime(CLOCK_MONOTONIC, &started);
+#endif
     memset(&request, 0, sizeof(request));
     memset(&response, 0, sizeof(response));
     response.status = 500;
@@ -366,7 +392,15 @@ static unsigned __stdcall client_thread(void* arg) {
     header_value(header_copy, "Cookie", cookie, sizeof(cookie));
     take_cookie(cookie, request.session, sizeof(request.session));
     header_value(header_copy, "X-Requested-With", request.csrf, sizeof(request.csrf));
-    copy_str(request.ip, sizeof(request.ip), "127.0.0.1");
+    {
+        char forwarded[160];
+        char* comma;
+        header_value(header_copy, "X-Forwarded-For", forwarded, sizeof(forwarded));
+        comma = strchr(forwarded, ',');
+        if (comma) *comma = 0;
+        trim_copy(request.ip, sizeof(request.ip), forwarded);
+        if (!request.ip[0]) copy_str(request.ip, sizeof(request.ip), "127.0.0.1");
+    }
     if (content_length < 0 || content_length > MAX_BODY) {
         reply_fail(&response, 400, "Nội dung quá lớn");
     } else {
@@ -389,10 +423,16 @@ static unsigned __stdcall client_thread(void* arg) {
         response.body_len = 0;
     }
     {
-        LARGE_INTEGER ended;
         double elapsed;
+#ifdef _WIN32
+        LARGE_INTEGER ended;
         QueryPerformanceCounter(&ended);
         elapsed = (double)(ended.QuadPart - started.QuadPart) * 1000.0 / (double)freq.QuadPart;
+#else
+        struct timespec ended;
+        clock_gettime(CLOCK_MONOTONIC, &ended);
+        elapsed = (double)(ended.tv_sec - started.tv_sec) * 1000.0 + (double)(ended.tv_nsec - started.tv_nsec) / 1000000.0;
+#endif
         if (strncmp(request.path, "/api/", 5) == 0) stats_note(elapsed);
         write_response(sock, &response, (long long)(elapsed + 0.5));
     }
@@ -405,10 +445,12 @@ static unsigned __stdcall client_thread(void* arg) {
 }
 
 int http_serve(int port) {
-    WSADATA data;
     SOCKET server;
     struct sockaddr_in addr;
+#ifdef _WIN32
+    WSADATA data;
     if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return 0;
+#endif
     InitializeCriticalSection(&g_cache_lock);
     g_cache_ready = 1;
     server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -419,7 +461,11 @@ int http_serve(int port) {
     }
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
+#ifdef _WIN32
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+#else
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+#endif
     addr.sin_port = htons((unsigned short)port);
     if (bind(server, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
         fprintf(stderr, "Khong mo duoc cong %d\n", port);
@@ -427,15 +473,27 @@ int http_serve(int port) {
         return 0;
     }
     listen(server, 64);
+#ifdef _WIN32
     printf("Dang lang nghe http://127.0.0.1:%d\n", port);
+#else
+    printf("Dang lang nghe cong %d\n", port);
+#endif
     fflush(stdout);
     for (;;) {
         SOCKET client = accept(server, NULL, NULL);
         if (client == INVALID_SOCKET) continue;
+#ifdef _WIN32
         {
             uintptr_t thread = _beginthreadex(NULL, 0, client_thread, (void*)(intptr_t)client, 0, NULL);
             if (thread) CloseHandle((HANDLE)thread);
             else closesocket(client);
         }
+#else
+        {
+            pthread_t thread;
+            if (pthread_create(&thread, NULL, client_thread, (void*)(intptr_t)client) == 0) pthread_detach(thread);
+            else closesocket(client);
+        }
+#endif
     }
 }

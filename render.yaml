@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: phong-thi-truc-tuyen
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health

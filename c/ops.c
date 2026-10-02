@@ -84,38 +84,20 @@ void write_health(W* w) {
 }
 
 static int count_backups(void) {
-    char pattern[MAX_PATH];
-    WIN32_FIND_DATAA found;
-    HANDLE handle;
-    int count = 0;
-    path_under(pattern, sizeof(pattern), "data\\backups\\*");
-    handle = FindFirstFileA(pattern, &found);
-    if (handle == INVALID_HANDLE_VALUE) return 0;
-    do {
-        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && strcmp(found.cFileName, ".") != 0 && strcmp(found.cFileName, "..") != 0) count++;
-    } while (FindNextFileA(handle, &found));
-    FindClose(handle);
-    return count;
+    char dir[MAX_PATH];
+    char names[32][32];
+    path_under(dir, sizeof(dir), "data\\backups");
+    return list_subdirs(dir, names, 32);
 }
 
 static void prune_backups(void) {
-    char pattern[MAX_PATH];
-    WIN32_FIND_DATAA found;
-    HANDLE handle;
+    char dir[MAX_PATH];
     char names[32][32];
-    int n = 0;
+    int n;
     int i;
     int j;
-    path_under(pattern, sizeof(pattern), "data\\backups\\*");
-    handle = FindFirstFileA(pattern, &found);
-    if (handle == INVALID_HANDLE_VALUE) return;
-    do {
-        if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && strcmp(found.cFileName, ".") != 0 && strcmp(found.cFileName, "..") != 0 && n < 32) {
-            copy_str(names[n], sizeof(names[n]), found.cFileName);
-            n++;
-        }
-    } while (FindNextFileA(handle, &found));
-    FindClose(handle);
+    path_under(dir, sizeof(dir), "data\\backups");
+    n = list_subdirs(dir, names, 32);
     for (i = 0; i < n; i++) {
         for (j = i + 1; j < n; j++) {
             if (strcmp(names[j], names[i]) > 0) {
@@ -126,26 +108,12 @@ static void prune_backups(void) {
             }
         }
     }
-    for (i = 5; i < n; i++) {
+    for (i = 5; i < n && i < 32; i++) {
         char relative[160];
-        char dir[MAX_PATH];
-        char pattern[MAX_PATH];
-        WIN32_FIND_DATAA inner;
-        HANDLE inner_handle;
+        char child[MAX_PATH];
         snprintf(relative, sizeof(relative), "data\\backups\\%s", names[i]);
-        path_under(dir, sizeof(dir), relative);
-        snprintf(pattern, sizeof(pattern), "%s\\*", dir);
-        inner_handle = FindFirstFileA(pattern, &inner);
-        if (inner_handle != INVALID_HANDLE_VALUE) {
-            do {
-                char child[MAX_PATH];
-                if (strcmp(inner.cFileName, ".") == 0 || strcmp(inner.cFileName, "..") == 0) continue;
-                snprintf(child, sizeof(child), "%s\\%s", dir, inner.cFileName);
-                DeleteFileA(child);
-            } while (FindNextFileA(inner_handle, &inner));
-            FindClose(inner_handle);
-        }
-        RemoveDirectoryA(dir);
+        path_under(child, sizeof(child), relative);
+        remove_dir_contents(child);
     }
 }
 
@@ -159,11 +127,15 @@ int ops_backup(void) {
     sqlite3* dest = NULL;
     sqlite3_backup* backup;
     int kept;
+#ifdef _WIN32
     localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
     strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &local);
     snprintf(relative, sizeof(relative), "data\\backups\\%s", stamp);
     path_under(dir, sizeof(dir), relative);
-    CreateDirectoryA(dir, NULL);
+    ensure_dir(dir);
     snprintf(relative, sizeof(relative), "data\\backups\\%s\\exam.db", stamp);
     path_under(file, sizeof(file), relative);
     if (sqlite3_open(file, &dest) != SQLITE_OK) {
@@ -477,25 +449,22 @@ static int backup_name_ok(const char* name) {
 
 void route_backups_list(Request* request, Response* response) {
     Actor actor;
-    WIN32_FIND_DATAA found;
-    HANDLE handle;
-    char pattern[MAX_PATH];
+    char dir[MAX_PATH];
+    char found[32][32];
     char names[32][32];
+    int found_count;
     int n = 0;
     int i;
     int j;
     W w;
     if (!require_role(request, response, &actor, "admin")) return;
-    path_under(pattern, sizeof(pattern), "data\\backups\\*");
-    handle = FindFirstFileA(pattern, &found);
-    if (handle != INVALID_HANDLE_VALUE) {
-        do {
-            if ((found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && backup_name_ok(found.cFileName) && n < 32) {
-                copy_str(names[n], sizeof(names[n]), found.cFileName);
-                n++;
-            }
-        } while (FindNextFileA(handle, &found));
-        FindClose(handle);
+    path_under(dir, sizeof(dir), "data\\backups");
+    found_count = list_subdirs(dir, found, 32);
+    for (i = 0; i < found_count && i < 32; i++) {
+        if (backup_name_ok(found[i]) && n < 32) {
+            copy_str(names[n], sizeof(names[n]), found[i]);
+            n++;
+        }
     }
     for (i = 0; i < n; i++) {
         for (j = i + 1; j < n; j++) {

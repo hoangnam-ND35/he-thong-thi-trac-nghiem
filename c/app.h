@@ -107,6 +107,11 @@ void route_attempt_result(Request* request, Response* response);
 void route_dash_admin(Request* request, Response* response);
 void route_dash_lecturer(Request* request, Response* response);
 void route_dash_student(Request* request, Response* response);
+void route_teacher_upgrade_get(Request* request, Response* response);
+void route_teacher_upgrade_submit(Request* request, Response* response);
+void route_teacher_upgrades_list(Request* request, Response* response);
+void route_teacher_upgrade_approve(Request* request, Response* response);
+void route_teacher_upgrade_reject(Request* request, Response* response);
 void route_audit(Request* request, Response* response);
 void register_routes(void);
 

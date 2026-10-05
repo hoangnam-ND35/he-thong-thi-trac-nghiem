@@ -33,6 +33,7 @@
           <tr><td>Soạn câu hỏi, mở kỳ thi, xem kết quả</td><td>Không</td><td>Môn của mình</td><td>Mọi môn</td></tr>
           <tr><td>Xem danh sách học sinh</td><td>Không</td><td>Cùng khoa</td><td>Mọi khoa</td></tr>
           <tr><td>Tạo giáo viên hoặc admin</td><td>Không</td><td>Không</td><td>Có</td></tr>
+          <tr><td>Xin lên giáo viên bằng CCCD</td><td>Gửi đơn</td><td>Không</td><td>Duyệt hoặc từ chối</td></tr>
           <tr><td>Khóa tài khoản, cấu hình, nhật ký, nhận diện trường</td><td>Không</td><td>Không</td><td>Có</td></tr>
         </tbody>
       </table></div>
@@ -42,6 +43,7 @@
   function paintShell() {
     ui.content.innerHTML = `
       ${permissionBoard()}
+      ${isAdmin ? `<section class="card panel" id="upgrade-box"><h2>Đơn xin lên giáo viên</h2><p class="muted">Đang tải đơn...</p></section>` : ""}
       <div class="toolbar">
         <div class="filters" style="margin:0">
           <input id="q" placeholder="Tìm tên, mã, email" aria-label="Tìm hồ sơ">
@@ -67,6 +69,66 @@
     ui.content.querySelectorAll("select").forEach((select) => { select.onchange = refresh; });
   }
 
+  function upgradeStatus(row) {
+    return `<tr>
+      <td>${esc(row.username)}<div class="muted">${esc(row.fullName)}</div></td>
+      <td>${esc(row.cccd)}</td>
+      <td>${esc(row.lecturerCode)}<div class="muted">${esc(row.department)} · ${esc(row.faculty)}</div></td>
+      <td><button class="btn small" data-approve="${row.id}" type="button">Duyệt</button>
+        <button class="btn small" data-reject="${row.id}" type="button">Từ chối</button></td>
+    </tr>`;
+  }
+
+  async function loadUpgrades() {
+    const box = document.getElementById("upgrade-box");
+    if (!box) return;
+    const rows = await API.get("/api/admin/teacher-upgrades");
+    box.innerHTML = `<h2>Đơn xin lên giáo viên</h2>
+      <p class="muted">Số CCCD chỉ hiện ở đây để đối chiếu. Học sinh chỉ thấy số đã che. Duyệt xong tài khoản thành giáo viên, lịch sử thi cũ vẫn giữ.</p>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Tài khoản</th><th>CCCD</th><th>Mã giáo viên</th><th></th></tr></thead>
+        <tbody>${rows.map(upgradeStatus).join("") || "<tr><td colspan='4'>Chưa có đơn chờ duyệt</td></tr>"}</tbody>
+      </table></div>`;
+    box.querySelectorAll("[data-approve]").forEach((button) => {
+      button.onclick = () => decide(Number(button.dataset.approve), true);
+    });
+    box.querySelectorAll("[data-reject]").forEach((button) => {
+      button.onclick = () => decide(Number(button.dataset.reject), false);
+    });
+  }
+
+  async function decide(id, approve) {
+    try {
+      if (approve) {
+        if (!(await confirmBox("Duyệt đơn này và đổi tài khoản thành giáo viên?"))) return;
+        await API.post("/api/admin/teacher-upgrades/" + id + "/approve", {});
+        toast("Đã duyệt. Người dùng tải lại trang để vào quyền giáo viên");
+      } else {
+        const body = openModal("Từ chối đơn", `<form id="reject-form" class="stack">
+          <label>Lý do<textarea name="note" required></textarea></label>
+          <button class="btn primary" type="submit">Từ chối</button>
+        </form>`);
+        const form = body.querySelector("#reject-form");
+        form.onsubmit = async (event) => {
+          event.preventDefault();
+          try {
+            await API.post("/api/admin/teacher-upgrades/" + id + "/reject", { note: form.note.value.trim() });
+            closeModal();
+            toast("Đã từ chối đơn");
+            await loadUpgrades();
+          } catch (error) {
+            toast(error.message, "bad");
+          }
+        };
+        return;
+      }
+      await loadUpgrades();
+      await load();
+    } catch (error) {
+      toast(error.message, "bad");
+    }
+  }
+
   async function load() {
     const params = new URLSearchParams();
     const q = document.getElementById("q")?.value.trim() || "";
@@ -87,9 +149,9 @@
     if (!body) return;
     if (count) count.textContent = rows.length + " hồ sơ";
     body.innerHTML = rows.map((row) => `<tr>
-      <td>${esc(row.username)}<div class="muted">${esc(row.studentCode || row.lecturerCode || "")}</div></td>
+      <td>${esc(row.username)}<div class="muted">${esc(row.role === "lecturer" ? (row.lecturerCode || "") : (row.studentCode || ""))}</div></td>
       <td>${esc(row.fullName)}<div class="muted">${esc(roleLabel(row.role))}${row.role === "admin" ? " · cao nhất" : ""}</div></td>
-      <td>${esc(row.className || row.department || "—")}<div class="muted">${esc(row.faculty || "")}</div></td>
+      <td>${esc(row.role === "lecturer" ? (row.department || "—") : (row.className || "—"))}<div class="muted">${esc(row.faculty || "")}</div></td>
       <td>${esc(row.email)}<div class="muted">${esc(row.phone || "")}</div></td>
       <td>${badge(row)}</td>
       <td><button class="btn small" data-open="${row.profileId}" type="button">Thao tác</button></td>
@@ -207,4 +269,5 @@
 
   paintShell();
   load().catch((error) => { ui.content.innerHTML = `<p class="note bad">${esc(error.message)}</p>`; });
+  if (isAdmin) loadUpgrades().catch((error) => toast(error.message, "bad"));
 })();

@@ -13,7 +13,7 @@ if not exist build\sqlite3.o (
   if errorlevel 1 exit /b 1
 )
 gcc -std=c11 -O2 -Wall -Wno-unused-function -Wno-unused-variable -D_WIN32_WINNT=0x0601 -finput-charset=UTF-8 -fexec-charset=UTF-8 -Ic -Ithird_party\sqlite-amalgamation-3460100 ^
-  c\json.c c\sha256.c c\util.c c\db.c c\http.c c\auth.c c\profile.c c\catalog.c c\question.c c\exam.c c\attempt.c c\dash.c c\ops.c c\seed.c c\routes.c c\main.c ^
+  c\json.c c\sha256.c c\util.c c\db.c c\http.c c\auth.c c\profile.c c\upgrade.c c\catalog.c c\question.c c\exam.c c\attempt.c c\dash.c c\ops.c c\seed.c c\routes.c c\main.c ^
   build\sqlite3.o -o build\online_exam.exe -lws2_32
 if errorlevel 1 exit /b 1
 echo.

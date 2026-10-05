@@ -19,6 +19,11 @@ void register_routes(void) {
     http_add_route("POST", "/api/profiles", route_profiles_create);
     http_add_route("PUT", "/api/profiles/me", route_profile_me);
     http_add_route("POST", "/api/profiles/me/avatar", route_avatar);
+    http_add_route("GET", "/api/profiles/me/teacher-upgrade", route_teacher_upgrade_get);
+    http_add_route("POST", "/api/profiles/me/teacher-upgrade", route_teacher_upgrade_submit);
+    http_add_route("GET", "/api/admin/teacher-upgrades", route_teacher_upgrades_list);
+    http_add_route("POST", "/api/admin/teacher-upgrades/#/approve", route_teacher_upgrade_approve);
+    http_add_route("POST", "/api/admin/teacher-upgrades/#/reject", route_teacher_upgrade_reject);
     http_add_route("PUT", "/api/profiles/#", route_profile_update);
     http_add_route("POST", "/api/profiles/#/disable", route_profile_disable);
     http_add_route("POST", "/api/profiles/#/enable", route_profile_enable);

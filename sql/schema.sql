@@ -225,6 +225,21 @@ CREATE TABLE IF NOT EXISTS system_settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS teacher_upgrades (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE,
+  profile_id INTEGER NOT NULL,
+  cccd TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  lecturer_code TEXT NOT NULL,
+  department TEXT NOT NULL,
+  faculty TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  note TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  reviewed_at INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_matrix_exam ON exam_matrix(exam_id);
 CREATE INDEX IF NOT EXISTS idx_events_attempt ON exam_events(attempt_id, kind);

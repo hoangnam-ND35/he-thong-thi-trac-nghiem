@@ -1,7 +1,7 @@
 (async function () {
   const me = await guard(["student", "lecturer", "admin"]);
   if (!me) return;
-  const isStudent = Boolean(me.studentId);
+  const isStudent = me.role === "student";
   const ui = mount({
     title: "Thông tin tài khoản",
     lead: isStudent
@@ -73,7 +73,8 @@
       </section>
       ${academic}
     </div>
-    ${isStudent ? `<section class="card panel" id="history"><h2>Lịch sử thi</h2></section>` : ""}`;
+    ${isStudent ? `<section class="card panel" id="upgrade"><h2>Nâng cấp giáo viên</h2><p class="muted">Đang tải đơn...</p></section>
+    <section class="card panel" id="history"><h2>Lịch sử thi</h2></section>` : ""}`;
 
   const face = document.getElementById("avatar-face");
   const fileInput = document.getElementById("avatar-file");
@@ -138,7 +139,54 @@
     button.disabled = false;
   };
 
+  function upgradeForm(row) {
+    const pending = row && row.status === "pending";
+    const rejected = row && row.status === "rejected";
+    return `<p class="muted">Hệ thống kiểm tra số CCCD đủ 12 số, mã tỉnh, năm sinh và giới tính khớp hồ sơ, họ tên trùng tài khoản. Admin xác nhận trước khi quyền đổi thành giáo viên. Không có kết nối cơ sở CCCD nhà nước.</p>
+      ${pending ? `<p class="note">Đơn đang chờ duyệt. CCCD đã che: ${esc(row.cccd)}. Mã giáo viên ${esc(row.lecturerCode)} · ${esc(row.department)} · ${esc(row.faculty)}.</p>` : ""}
+      ${rejected ? `<p class="note bad">Đơn bị từ chối: ${esc(row.note || "Không có lý do")}. Bạn có thể gửi lại.</p>` : ""}
+      <form id="upgrade-form" class="stack">
+        <label>Số CCCD<input name="cccd" inputmode="numeric" maxlength="12" required placeholder="12 chữ số"></label>
+        <label>Họ tên trên CCCD<input name="fullName" value="${esc(me.fullName)}" readonly></label>
+        <label>Mã giáo viên muốn dùng<input name="lecturerCode" value="${esc(row?.lecturerCode || "")}" required></label>
+        <label>Bộ môn<input name="department" value="${esc(row?.department || "")}" required></label>
+        <label>Khoa<input name="faculty" value="${esc(row?.faculty || me.faculty || "")}" required></label>
+        <button class="btn primary" type="submit">${pending ? "Gửi lại đơn" : "Gửi đơn xác minh"}</button>
+      </form>`;
+  }
+
+  async function paintUpgrade() {
+    const box = document.getElementById("upgrade");
+    if (!box) return;
+    try {
+      const fresh = await API.get("/api/auth/me");
+      if (fresh.role === "lecturer") {
+        box.innerHTML = `<h2>Nâng cấp giáo viên</h2><p class="note">Đơn đã được duyệt. Tài khoản của bạn là giáo viên.</p><a class="btn primary" href="${esc(roleHome("lecturer"))}">Vào trang giáo viên</a>`;
+        return;
+      }
+      const row = await API.get("/api/profiles/me/teacher-upgrade");
+      box.innerHTML = `<h2>Nâng cấp giáo viên</h2>${upgradeForm(row.status ? row : null)}`;
+      box.querySelector("#upgrade-form").onsubmit = async (event) => {
+        event.preventDefault();
+        const button = event.target.querySelector("button");
+        const data = Object.fromEntries(new FormData(event.target).entries());
+        button.disabled = true;
+        try {
+          await API.post("/api/profiles/me/teacher-upgrade", data);
+          toast("Đã gửi đơn. Chờ admin duyệt");
+          await paintUpgrade();
+        } catch (error) {
+          toast(error.message, "bad");
+          button.disabled = false;
+        }
+      };
+    } catch (error) {
+      box.innerHTML = `<h2>Nâng cấp giáo viên</h2><p class="note bad">${esc(error.message)}</p>`;
+    }
+  }
+
   if (isStudent) {
+    paintUpgrade();
     try {
       const rows = await API.get("/api/students/" + me.studentId + "/history");
       document.getElementById("history").insertAdjacentHTML("beforeend", `<div class="table-wrap"><table class="data"><thead><tr><th>Kỳ thi</th><th>Trạng thái</th><th>Điểm</th><th>Mã đề</th><th></th></tr></thead><tbody>

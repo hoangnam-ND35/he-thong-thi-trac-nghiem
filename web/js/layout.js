@@ -16,7 +16,7 @@ const NAV = {
     ["/lecturer/questions.html", "Ngân hàng câu hỏi"],
     ["/lecturer/exams.html", "Kỳ thi"],
     ["/lecturer/results.html", "Kết quả"],
-    ["/admin/profiles.html", "Sinh viên"],
+    ["/admin/profiles.html", "Học sinh"],
     ["/student/profile.html", "Tài khoản"]
   ],
   student: [
@@ -38,7 +38,7 @@ function roleHome(role) {
 }
 
 function roleLabel(role) {
-  return { admin: "Quản trị viên", lecturer: "Giảng viên", student: "Sinh viên" }[role] || role;
+  return { admin: "Admin", lecturer: "Giáo viên", student: "Học sinh" }[role] || role;
 }
 
 function paintAvatar(el, src, letter) {
@@ -158,6 +158,32 @@ function toast(message, kind) {
   item.textContent = message;
   box.appendChild(item);
   setTimeout(() => item.remove(), 4200);
+}
+
+function shareLink(title, url, hint) {
+  const body = openModal(title, `<p class="muted">${esc(hint || "Gửi link này cho người cần mở.")}</p>
+    <label>Link<input id="share-url" readonly value="${esc(url)}"></label>
+    <div class="row-actions"><button class="btn primary" id="share-copy" type="button">Sao chép link</button></div>`);
+  const input = body.querySelector("#share-url");
+  input.focus();
+  input.select();
+  body.querySelector("#share-copy").onclick = async () => {
+    input.focus();
+    input.select();
+    let copied = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      }
+    } catch (error) {
+      copied = false;
+    }
+    if (!copied) {
+      try { copied = document.execCommand("copy"); } catch (error) { copied = false; }
+    }
+    toast(copied ? "Đã chép link" : "Hãy chọn ô link và chép thủ công", copied ? "" : "bad");
+  };
 }
 
 function closeModal() {
@@ -354,7 +380,7 @@ function mount(options) {
         <div class="aside-id">
           <span class="avatar small" id="side-avatar"></span>
           <div><div class="name">${esc(me.fullName)}</div>
-          <div class="role">${esc(roleLabel(me.role))} · ${esc(me.username)}</div></div>
+          <div class="role">${esc(roleLabel(me.role))}${me.role === "admin" ? " · cao nhất" : ""} · ${esc(me.username)}</div></div>
         </div>
         <div class="row-actions">
           <button class="btn small" id="change-pw" type="button">Đổi mật khẩu</button>

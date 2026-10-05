@@ -1,14 +1,14 @@
 (async function () {
   const me = await guard(["lecturer"]);
   if (!me) return;
-  const ui = mount({ title: "Bảng của giảng viên", me });
+  const ui = mount({ title: "Bảng của giáo viên", me });
   try {
     const data = await API.get("/api/dashboard/lecturer");
     const card = (row) => `<article class="card exam-card"><h3>${esc(row.title)}</h3><div class="meta"><span>${esc(row.subjectCode)}</span><span>${esc(formatTime(row.startTime))} – ${esc(formatTime(row.endTime))}</span><span>${row.submitted} bài đã nộp</span></div></article>`;
     ui.content.innerHTML = `
       <div class="stats">
         <article class="card stat"><span>Đang diễn ra</span><b>${data.ongoing.length}</b></article>
-        <article class="card stat"><span>Sinh viên đang thi</span><b>${data.inProgress || 0}</b></article>
+        <article class="card stat"><span>Học sinh đang thi</span><b>${data.inProgress || 0}</b></article>
         <article class="card stat"><span>Sắp tới</span><b>${data.upcoming.length}</b></article>
         <article class="card stat"><span>Bài đã nộp</span><b>${data.submittedCount}</b></article>
         <article class="card stat"><span>Điểm trung bình</span><b>${formatScore(data.averagePercent)}%</b></article>

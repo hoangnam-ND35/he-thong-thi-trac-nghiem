@@ -4,7 +4,7 @@
   const isAdmin = me.role === "admin";
   const ui = mount({
     title: "Môn học",
-    lead: isAdmin ? "Khoa, bộ môn, lớp và môn học giao cho giảng viên." : "Môn học bạn phụ trách.",
+    lead: isAdmin ? "Khoa, bộ môn, lớp và môn học giao cho giáo viên. Chỉ admin tạo được khoa và lớp." : "Giáo viên chỉ thấy môn mình phụ trách.",
     me
   });
   let departments = [];
@@ -29,7 +29,7 @@
         <article class="card stat"><span>Bộ môn</span><b>${departments.length}</b></article>
         <article class="card stat"><span>Lớp</span><b>${classes.length}</b></article>
         <article class="card stat"><span>Môn học</span><b>${subjects.length}</b></article>
-        <article class="card stat"><span>Giảng viên</span><b>${lecturers.length}</b></article>
+        <article class="card stat"><span>Giáo viên</span><b>${lecturers.length}</b></article>
       </div>
       <div class="grid-2">
         <section class="card panel"><h2>Bộ môn</h2><form id="dep-form" class="stack">
@@ -47,8 +47,8 @@
         <div class="table-wrap"><table class="data"><tbody>${classes.map((row) => `<tr><td>${esc(row.name)}</td><td class="muted">${esc(row.departmentName)} · ${esc(row.faculty)}</td></tr>`).join("") || "<tr><td>Chưa có lớp</td></tr>"}</tbody></table></div></section>
       </div>` : ""}
       <section class="card panel"><div class="toolbar"><h2 style="margin:0">Danh sách môn</h2>
-        <div class="filters" style="margin:0"><input id="subject-q" value="${esc(query)}" placeholder="Tìm mã, tên, giảng viên" aria-label="Tìm môn học"><button class="btn primary" id="add-subject" type="button">Thêm môn học</button></div></div>
-        <div class="table-wrap"><table class="data"><thead><tr><th>Mã</th><th>Tên</th><th>Tín chỉ</th><th>Giảng viên</th><th>Bộ môn</th><th></th></tr></thead>
+        <div class="filters" style="margin:0"><input id="subject-q" value="${esc(query)}" placeholder="Tìm mã, tên, giáo viên" aria-label="Tìm môn học"><button class="btn primary" id="add-subject" type="button">Thêm môn học</button></div></div>
+        <div class="table-wrap"><table class="data"><thead><tr><th>Mã</th><th>Tên</th><th>Tín chỉ</th><th>Giáo viên</th><th>Bộ môn</th><th></th></tr></thead>
         <tbody id="subject-rows">${shown.map((row) => `<tr><td>${esc(row.code)}</td><td>${esc(row.name)}<div class="muted">${esc(row.description || "")}</div></td><td>${row.credits}</td><td>${esc(row.lecturerName)}</td><td>${esc(row.departmentName)}</td>
           <td>${row.canEdit ? `<button class="btn small" data-edit="${row.id}">Sửa</button>` : ""}</td></tr>`).join("") || "<tr><td colspan='6'>Không có môn phù hợp</td></tr>"}</tbody></table></div>
         <p class="count-line">${shown.length} / ${subjects.length} môn</p>
@@ -98,7 +98,7 @@
       <label>Tên môn<input name="name" value="${esc(row?.name || "")}" required></label>
       <label>Số tín chỉ<input name="credits" type="number" min="1" max="10" value="${row?.credits || 3}" required></label>
       <label>Bộ môn<select name="departmentId">${departments.map((item) => `<option value="${item.id}" ${row?.departmentId === item.id ? "selected" : ""}>${esc(item.name)}</option>`).join("")}</select></label>
-      ${isAdmin ? `<label>Giảng viên<select name="lecturerId">${lecturers.map((item) => `<option value="${item.lecturerId}" ${row?.lecturerId === item.lecturerId ? "selected" : ""}>${esc(item.fullName)}</option>`).join("")}</select></label>` : ""}
+      ${isAdmin ? `<label>Giáo viên<select name="lecturerId">${lecturers.map((item) => `<option value="${item.lecturerId}" ${row?.lecturerId === item.lecturerId ? "selected" : ""}>${esc(item.fullName)}</option>`).join("")}</select></label>` : ""}
       <label>Mô tả<textarea name="description">${esc(row?.description || "")}</textarea></label>
       <button class="btn primary" type="submit">Lưu</button>
     </form>`);

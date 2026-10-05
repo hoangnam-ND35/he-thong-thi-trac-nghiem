@@ -21,7 +21,7 @@
         <h2>Thông tin học vụ</h2>
         <dl class="facts">
           <dt>Họ và tên</dt><dd>${esc(me.fullName)}</dd>
-          <dt>Mã sinh viên</dt><dd>${esc(me.studentCode || "—")}</dd>
+          <dt>Mã học sinh</dt><dd>${esc(me.studentCode || "—")}</dd>
           <dt>Ngày sinh</dt><dd>${esc(born)}</dd>
           <dt>Giới tính</dt><dd>${esc(me.gender || "—")}</dd>
           <dt>Lớp</dt><dd>${esc(me.className || "—")}</dd>
@@ -32,7 +32,7 @@
         <h2>Thông tin công tác</h2>
         <dl class="facts">
           <dt>Họ và tên</dt><dd>${esc(me.fullName)}</dd>
-          <dt>Mã giảng viên</dt><dd>${esc(me.lecturerCode || "—")}</dd>
+          <dt>Mã giáo viên</dt><dd>${esc(me.lecturerCode || "—")}</dd>
           <dt>Bộ môn</dt><dd>${esc(me.department || "—")}</dd>
           <dt>Khoa</dt><dd>${esc(me.faculty || "—")}</dd>
           <dt>Email</dt><dd>${esc(me.email || "—")}</dd>

@@ -219,7 +219,7 @@ static int save_subject(Request* request, Response* response, Actor* actor, int 
     }
     if (scalar_int("SELECT COUNT(*) FROM departments WHERE id=?", department_id, -1) == 0 ||
         scalar_int("SELECT COUNT(*) FROM lecturers WHERE id=?", lecturer_id, -1) == 0) {
-        reply_fail(response, 400, "Bộ môn hoặc giảng viên không tồn tại");
+        reply_fail(response, 400, "Bộ môn hoặc giáo viên không tồn tại");
         return 0;
     }
     if (existing) {

@@ -3,8 +3,8 @@
   if (!me) return;
   const isAdmin = me.role === "admin";
   const ui = mount({
-    title: isAdmin ? "Hồ sơ và tài khoản" : "Sinh viên",
-    lead: isAdmin ? "Tạo giảng viên tại đây. Sinh viên có thể tự đăng ký, hoặc được thêm thủ công." : "Sinh viên cùng khoa.",
+    title: isAdmin ? "Hồ sơ và phân quyền" : "Học sinh",
+    lead: isAdmin ? "Admin đứng trên giáo viên và học sinh. Giáo viên do admin tạo. Học sinh có thể tự đăng ký." : "Giáo viên chỉ xem học sinh cùng khoa. Không tạo được giáo viên hay admin.",
     me
   });
   if (isAdmin) {
@@ -21,12 +21,31 @@
     return `<span class="badge ok">Hoạt động</span>`;
   }
 
+  function permissionBoard() {
+    if (!isAdmin) return "";
+    return `<section class="card panel">
+      <h2>Phân quyền</h2>
+      <p class="muted">Học sinh làm bài. Giáo viên soạn môn của mình. Admin làm được mọi việc của hai vai dưới và là quyền cao nhất.</p>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Việc được làm</th><th>Học sinh</th><th>Giáo viên</th><th>Admin</th></tr></thead>
+        <tbody>
+          <tr><td>Tự đăng ký và làm bài thi</td><td>Có</td><td>Không</td><td>Không</td></tr>
+          <tr><td>Soạn câu hỏi, mở kỳ thi, xem kết quả</td><td>Không</td><td>Môn của mình</td><td>Mọi môn</td></tr>
+          <tr><td>Xem danh sách học sinh</td><td>Không</td><td>Cùng khoa</td><td>Mọi khoa</td></tr>
+          <tr><td>Tạo giáo viên hoặc admin</td><td>Không</td><td>Không</td><td>Có</td></tr>
+          <tr><td>Khóa tài khoản, cấu hình, nhật ký, nhận diện trường</td><td>Không</td><td>Không</td><td>Có</td></tr>
+        </tbody>
+      </table></div>
+    </section>`;
+  }
+
   function paintShell() {
     ui.content.innerHTML = `
+      ${permissionBoard()}
       <div class="toolbar">
         <div class="filters" style="margin:0">
           <input id="q" placeholder="Tìm tên, mã, email" aria-label="Tìm hồ sơ">
-          ${isAdmin ? `<select id="role" aria-label="Vai trò"><option value="">Mọi vai trò</option><option value="admin">Quản trị viên</option><option value="lecturer">Giảng viên</option><option value="student">Sinh viên</option></select>
+          ${isAdmin ? `<select id="role" aria-label="Vai trò"><option value="">Mọi vai trò</option><option value="admin">Admin</option><option value="lecturer">Giáo viên</option><option value="student">Học sinh</option></select>
           <select id="state" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="active">Hoạt động</option><option value="locked">Đã khóa</option><option value="disabled">Vô hiệu</option></select>` : ""}
           <input id="faculty" placeholder="Khoa" aria-label="Khoa">
           <input id="className" placeholder="Lớp" aria-label="Lớp">
@@ -69,7 +88,7 @@
     if (count) count.textContent = rows.length + " hồ sơ";
     body.innerHTML = rows.map((row) => `<tr>
       <td>${esc(row.username)}<div class="muted">${esc(row.studentCode || row.lecturerCode || "")}</div></td>
-      <td>${esc(row.fullName)}<div class="muted">${esc(roleLabel(row.role))}</div></td>
+      <td>${esc(row.fullName)}<div class="muted">${esc(roleLabel(row.role))}${row.role === "admin" ? " · cao nhất" : ""}</div></td>
       <td>${esc(row.className || row.department || "—")}<div class="muted">${esc(row.faculty || "")}</div></td>
       <td>${esc(row.email)}<div class="muted">${esc(row.phone || "")}</div></td>
       <td>${badge(row)}</td>
@@ -104,7 +123,7 @@
   function formFields(row) {
     const role = row?.role || "student";
     return `<form id="profile-form" class="stack">
-      ${row ? "" : `<label>Vai trò<select name="role"><option value="student">Sinh viên</option><option value="lecturer">Giảng viên</option><option value="admin">Quản trị viên</option></select></label>
+      ${row ? "" : `<label>Vai trò<select name="role"><option value="student">Học sinh</option><option value="lecturer">Giáo viên</option><option value="admin">Admin</option></select></label>
       <label>Tên đăng nhập<input name="username" required></label>
       <label>Mật khẩu<input name="password" type="password" minlength="8" required></label>`}
       <label>Họ tên<input name="fullName" value="${esc(row?.fullName || "")}" required></label>
@@ -117,14 +136,14 @@
 
   function roleFields(role, row) {
     if (role === "student") {
-      return `<label>Mã sinh viên<input name="studentCode" value="${esc(row?.studentCode || "")}" required></label>
+      return `<label>Mã học sinh<input name="studentCode" value="${esc(row?.studentCode || "")}" required></label>
         <label>Ngày sinh<input name="dob" type="date" value="${esc(row?.dob || "")}"></label>
         <label>Giới tính<select name="gender"><option ${row?.gender === "Nam" ? "selected" : ""}>Nam</option><option ${row?.gender === "Nữ" ? "selected" : ""}>Nữ</option><option ${row?.gender === "Khác" ? "selected" : ""}>Khác</option></select></label>
         <label>Lớp<input name="className" value="${esc(row?.className || "")}" required></label>
         <label>Khoa<input name="faculty" value="${esc(row?.faculty || "")}" placeholder="Tên khoa" required></label>`;
     }
     if (role === "lecturer") {
-      return `<label>Mã giảng viên<input name="lecturerCode" value="${esc(row?.lecturerCode || "")}" required></label>
+      return `<label>Mã giáo viên<input name="lecturerCode" value="${esc(row?.lecturerCode || "")}" required></label>
         <label>Bộ môn<input name="department" value="${esc(row?.department || "")}" required></label>
         <label>Khoa<input name="faculty" value="${esc(row?.faculty || "")}" placeholder="Tên khoa" required></label>`;
     }

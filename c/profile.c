@@ -104,7 +104,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
     trim_copy(email, sizeof(email), js_str(body, "email", ""));
     trim_copy(phone, sizeof(phone), js_str(body, "phone", ""));
     if (self_register && strcmp(role, "student") != 0) {
-        snprintf(err, err_cap, "Chỉ sinh viên được tự đăng ký. Giảng viên do quản trị tạo");
+        snprintf(err, err_cap, "Chỉ học sinh được tự đăng ký. Giáo viên và admin do quản trị tạo");
         return 400;
     }
     if (!role_is(role, "student,lecturer,admin")) {
@@ -139,7 +139,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
         trim_copy(class_name, sizeof(class_name), js_str(body, "className", ""));
         trim_copy(faculty, sizeof(faculty), js_str(body, "faculty", ""));
         if (!student_code[0] || strlen(dob) != 10 || !gender_ok(gender) || !class_name[0] || !faculty[0]) {
-            snprintf(err, err_cap, "Thiếu hoặc sai thông tin sinh viên");
+            snprintf(err, err_cap, "Thiếu hoặc sai thông tin học sinh");
             return 400;
         }
         if (!class_exists(class_name, faculty)) {
@@ -147,7 +147,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
             return 400;
         }
         if (taken("SELECT COUNT(*) FROM students WHERE student_code=?", student_code)) {
-            snprintf(err, err_cap, "Mã sinh viên đã tồn tại");
+            snprintf(err, err_cap, "Mã học sinh đã tồn tại");
             return 400;
         }
     } else if (strcmp(role, "lecturer") == 0) {
@@ -155,11 +155,11 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
         trim_copy(department, sizeof(department), js_str(body, "department", ""));
         trim_copy(faculty, sizeof(faculty), js_str(body, "faculty", ""));
         if (!lecturer_code[0] || !department[0] || !faculty[0]) {
-            snprintf(err, err_cap, "Thiếu thông tin giảng viên");
+            snprintf(err, err_cap, "Thiếu thông tin giáo viên");
             return 400;
         }
         if (taken("SELECT COUNT(*) FROM lecturers WHERE lecturer_code=?", lecturer_code)) {
-            snprintf(err, err_cap, "Mã giảng viên đã tồn tại");
+            snprintf(err, err_cap, "Mã giáo viên đã tồn tại");
             return 400;
         }
     }
@@ -375,6 +375,7 @@ void route_profile_update(Request* request, Response* response) {
     W w;
     if (!require_role(request, response, &actor, "admin")) return;
     stmt = db_prep("SELECT user_id, role FROM profiles WHERE id=?");
+    if (stmt) sqlite3_bind_int(stmt, 1, profile_id);
     if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
         sqlite3_finalize(stmt);
         reply_fail(response, 404, "Không tìm thấy hồ sơ");
@@ -407,7 +408,7 @@ void route_profile_update(Request* request, Response* response) {
         trim_copy(class_name, sizeof(class_name), js_str(request->json, "className", ""));
         trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
         if (!student_code[0] || !gender_ok(gender) || !class_exists(class_name, faculty)) {
-            reply_fail(response, 400, "Thông tin sinh viên chưa hợp lệ");
+            reply_fail(response, 400, "Thông tin học sinh chưa hợp lệ");
             return;
         }
         stmt = db_prep("UPDATE students SET student_code=?, dob=?, gender=?, class_name=?, faculty=? WHERE profile_id=?");
@@ -427,7 +428,7 @@ void route_profile_update(Request* request, Response* response) {
         trim_copy(department, sizeof(department), js_str(request->json, "department", ""));
         trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
         if (!lecturer_code[0] || !department[0] || !faculty[0]) {
-            reply_fail(response, 400, "Thiếu thông tin giảng viên");
+            reply_fail(response, 400, "Thiếu thông tin giáo viên");
             return;
         }
         stmt = db_prep("UPDATE lecturers SET lecturer_code=?, department=?, faculty=? WHERE profile_id=?");
@@ -449,12 +450,46 @@ void route_profile_update(Request* request, Response* response) {
 static int profile_user(int profile_id, int* user_id) {
     sqlite3_stmt* stmt = db_prep("SELECT user_id FROM profiles WHERE id=?");
     int ok = 0;
+    if (stmt) sqlite3_bind_int(stmt, 1, profile_id);
     if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
         *user_id = db_int(stmt, 0);
         ok = 1;
     }
     sqlite3_finalize(stmt);
     return ok;
+}
+
+static int profile_role(int profile_id, int* user_id, char* role, size_t cap) {
+    sqlite3_stmt* stmt = db_prep("SELECT user_id, role FROM profiles WHERE id=?");
+    int ok = 0;
+    if (stmt) sqlite3_bind_int(stmt, 1, profile_id);
+    if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+        *user_id = db_int(stmt, 0);
+        copy_str(role, cap, db_text(stmt, 1));
+        ok = 1;
+    }
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+static int active_admin_count(void) {
+    return scalar_int(
+        "SELECT COUNT(*) FROM users u JOIN profiles p ON p.id=u.profile_id "
+        "WHERE u.role='admin' AND u.status='active' AND p.status='active'",
+        -1, -1);
+}
+
+static int protect_top_admin(Response* response, int profile_id, int* user_id) {
+    char role[16];
+    if (!profile_role(profile_id, user_id, role, sizeof(role))) {
+        reply_fail(response, 404, "Không tìm thấy hồ sơ");
+        return 0;
+    }
+    if (strcmp(role, "admin") == 0 && active_admin_count() <= 1) {
+        reply_fail(response, 400, "Admin là quyền cao nhất. Phải còn ít nhất một admin đang hoạt động");
+        return 0;
+    }
+    return 1;
 }
 
 static void set_status(const char* sql, int id, const char* status) {
@@ -486,10 +521,7 @@ void route_profile_lock(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
     if (!require_role(request, response, &actor, "admin")) return;
-    if (!profile_user(request->id, &user_id)) {
-        reply_fail(response, 404, "Không tìm thấy hồ sơ");
-        return;
-    }
+    if (!protect_top_admin(response, request->id, &user_id)) return;
     if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không khóa chính tài khoản đang dùng");
         return;
@@ -517,7 +549,8 @@ void route_profile_disable(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
     if (!require_role(request, response, &actor, "admin")) return;
-    if (!profile_user(request->id, &user_id) || user_id == actor.user_id) {
+    if (!protect_top_admin(response, request->id, &user_id)) return;
+    if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không vô hiệu hồ sơ này");
         return;
     }
@@ -577,7 +610,8 @@ void route_profile_delete(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
     if (!require_role(request, response, &actor, "admin")) return;
-    if (!profile_user(request->id, &user_id) || user_id == actor.user_id) {
+    if (!protect_top_admin(response, request->id, &user_id)) return;
+    if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không xóa hồ sơ này");
         return;
     }

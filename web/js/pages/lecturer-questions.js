@@ -38,9 +38,10 @@
       <tbody>${questions.map((row) => `<tr>
         <td>${esc(row.text)}<div class="muted">${esc(row.topic || "")}</div></td><td>${esc(row.subjectCode)}</td><td>${esc(row.chapter)}</td>
         <td>${esc(difficultyLabel(row.difficulty))}</td><td>${formatScore(row.score)}</td>
-        <td class="row-actions"><button class="btn small" data-edit="${row.id}">Sửa</button><button class="btn small" data-hide="${row.id}">${row.isActive ? "Ẩn" : "Hiện"}</button></td>
+        <td class="row-actions"><button class="btn small" data-link="${row.id}" type="button">Xuất link</button><button class="btn small" data-edit="${row.id}">Sửa</button><button class="btn small" data-hide="${row.id}">${row.isActive ? "Ẩn" : "Hiện"}</button></td>
       </tr>`).join("") || "<tr><td colspan='6'>Chưa có câu hỏi</td></tr>"}</tbody></table></div>`;
     document.getElementById("filter").onclick = () => load().catch((error) => toast(error.message, "bad"));
+    ui.content.querySelectorAll("[data-link]").forEach((button) => button.onclick = () => shareQuestion(Number(button.dataset.link)));
     ui.content.querySelectorAll("[data-edit]").forEach((button) => button.onclick = () => openForm(questions.find((row) => row.id === Number(button.dataset.edit))));
     ui.content.querySelectorAll("[data-hide]").forEach((button) => button.onclick = async () => {
       try { await API.post("/api/questions/" + button.dataset.hide + "/disable", {}); await load(); }
@@ -85,13 +86,18 @@
         }))
       };
       try {
-        if (row) await API.put("/api/questions/" + row.id, payload);
-        else await API.post("/api/questions", payload);
+        const saved = row ? await API.put("/api/questions/" + row.id, payload) : await API.post("/api/questions", payload);
+        const id = saved && saved.id ? saved.id : row.id;
         closeModal();
         toast("Đã lưu câu hỏi");
         await load();
+        shareQuestion(id);
       } catch (error) { toast(error.message, "bad"); }
     };
+  }
+
+  function shareQuestion(id) {
+    shareLink("Link câu hỏi", location.origin + "/lecturer/questions.html?questionId=" + id, "Mở link này để xem lại câu vừa nhập.");
   }
 
   function openImport() {
@@ -111,5 +117,11 @@
     };
   }
 
-  load().catch((error) => { ui.content.innerHTML = `<p class="note bad">${esc(error.message)}</p>`; });
+  const wantedQuestion = Number(new URLSearchParams(location.search).get("questionId") || 0);
+  load().then(() => {
+    if (!wantedQuestion) return;
+    const found = questions.find((row) => row.id === wantedQuestion);
+    if (found) openForm(found);
+    else toast("Không thấy câu hỏi trong link", "bad");
+  }).catch((error) => { ui.content.innerHTML = `<p class="note bad">${esc(error.message)}</p>`; });
 })();

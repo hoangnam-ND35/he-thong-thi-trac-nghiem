@@ -67,7 +67,7 @@
     const [data, ops] = await Promise.all([API.get("/api/dashboard/admin"), API.get("/api/health")]);
     ui.content.innerHTML = `
       <div class="stats">
-        <a class="card stat" href="/admin/profiles.html"><span>Người dùng</span><b>${data.users}</b><small>${data.students} sinh viên · ${data.lecturers} giảng viên</small></a>
+        <a class="card stat" href="/admin/profiles.html"><span>Người dùng</span><b>${data.users}</b><small>${data.students} học sinh · ${data.lecturers} giáo viên</small></a>
         <a class="card stat" href="/lecturer/exams.html"><span>Kỳ thi</span><b>${data.exams}</b><small>${data.attempts || 0} lượt làm bài</small></a>
         <a class="card stat" href="/admin/subjects.html"><span>Môn học</span><b>${data.subjects}</b><small>Khoa, bộ môn và lớp</small></a>
         <a class="card stat" href="/lecturer/questions.html"><span>Câu hỏi</span><b>${data.questions}</b><small>Ngân hàng đang dùng</small></a>

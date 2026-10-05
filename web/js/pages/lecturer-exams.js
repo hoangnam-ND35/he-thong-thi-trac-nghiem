@@ -23,6 +23,7 @@
           <button class="btn small" data-edit="${row.id}">Sửa</button>
           ${row.status !== "published" ? `<button class="btn small primary" data-publish="${row.id}">Mở kỳ thi</button>` : `<button class="btn small" data-close="${row.id}">Đóng</button>`}
           ${row.status === "draft" ? `<button class="btn small danger" data-delete="${row.id}">Xóa</button>` : ""}
+          <button class="btn small" data-link="${row.id}" type="button">Xuất link</button>
           <a class="btn small" href="/lecturer/results.html?examId=${row.id}">Kết quả</a>
         </div>
       </article>`).join("") || "<p class='muted'>Chưa có kỳ thi.</p>"}</section>
@@ -76,6 +77,7 @@
     form.onsubmit = save;
     document.getElementById("reset-form").onclick = () => { editing = null; load(); };
     ui.content.querySelectorAll("[data-edit]").forEach((button) => button.onclick = () => fill(exams.find((row) => row.id === Number(button.dataset.edit))));
+    ui.content.querySelectorAll("[data-link]").forEach((button) => button.onclick = () => shareExam(Number(button.dataset.link)));
     ui.content.querySelectorAll("[data-publish]").forEach((button) => button.onclick = () => act("publish", button.dataset.publish));
     ui.content.querySelectorAll("[data-close]").forEach((button) => button.onclick = () => act("close", button.dataset.close));
     ui.content.querySelectorAll("[data-delete]").forEach((button) => button.onclick = () => act("delete", button.dataset.delete));
@@ -186,18 +188,25 @@
       payload.hardCount = payload.matrix.reduce((sum, row) => sum + row.hardCount, 0);
     }
     try {
+      let savedId = editing;
       if (editing) {
         await API.put("/api/exams/" + editing, payload);
         if (publish) await API.post("/api/exams/" + editing + "/publish", {});
       } else {
-        await API.post("/api/exams", payload);
+        const created = await API.post("/api/exams", payload);
+        savedId = created && created.id ? created.id : 0;
       }
       toast(publish ? "Đã mở kỳ thi" : "Đã lưu kỳ thi");
       editing = null;
       await load();
+      if (savedId) shareExam(savedId);
     } catch (error) {
       toast(error.message, "bad");
     }
+  }
+
+  function shareExam(id) {
+    shareLink("Link kỳ thi", location.origin + "/student/dashboard.html?examId=" + id, "Học sinh đăng nhập rồi mở link này để vào đúng kỳ thi.");
   }
 
   async function act(kind, id) {

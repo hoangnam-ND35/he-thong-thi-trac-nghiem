@@ -372,7 +372,7 @@ void route_register(Request* request, Response* response) {
     throttle_clear(key);
     {
         const char* token = make_session(user_id);
-        audit_add(user_id, "REGISTER", "Học sinh tự đăng ký", request->ip);
+        audit_add(user_id, "REGISTER", "Tạo tài khoản thường", request->ip);
         reply_begin(&w);
         write_user(&w, user_id);
         reply_json(response, &w);

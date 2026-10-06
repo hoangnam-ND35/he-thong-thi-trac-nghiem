@@ -24,6 +24,11 @@
       <div class="row-actions">${action}</div>
     </article>`;
     ui.content.innerHTML = `
+      <section class="card panel">
+        <h2>Nâng cấp giáo viên</h2>
+        <p class="muted">Tài khoản này là tài khoản thường. Muốn lên giáo viên thì xác minh số CCCD. Admin duyệt thì quyền mới đổi.</p>
+        <a class="btn primary" href="/student/profile.html#upgrade">Xác minh danh tính</a>
+      </section>
       <section class="note">Bốn cơ chế của phòng thi: mỗi người một mã đề, đồng hồ lấy từ máy chủ, mất mạng vẫn lưu bài trên máy, hết giờ thì tự nộp kể cả khi chưa có mạng.</section>
       ${focusId && !linked ? `<section class="note warn">Không thấy kỳ thi trong link. Đề có thể chưa mở, đã đóng, hoặc bạn không thuộc lớp.</section>` : ""}
       ${(dash.notifications || []).length ? `<section class="card panel"><h2>Thông báo</h2>${dash.notifications.map((row) => `<p>${esc(row.message)} <span class="muted">${esc(formatTime(row.createdAt))}</span></p>`).join("")}</section>` : ""}

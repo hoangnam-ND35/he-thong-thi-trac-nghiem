@@ -343,13 +343,13 @@ function applyBrand(brand) {
   if (sideName) sideName.textContent = data.schoolName;
   if (sideNote) sideNote.textContent = data.levelLabel || "Phòng thi";
   const note = document.getElementById("brand-note");
-  if (note) note.textContent = `${data.studentWord} tự đăng ký theo lớp. Tài khoản ${String(data.teacherWord || "giảng viên").toLowerCase()} do quản trị tạo trong hồ sơ.`;
+  if (note) note.textContent = "Ai cũng tạo được tài khoản thường và vào ngay. Muốn lên giáo viên thì xác minh số CCCD, admin duyệt rồi quyền mới đổi.";
   const registerTitle = document.getElementById("register-title");
-  if (registerTitle) registerTitle.textContent = "Đăng ký " + String(data.studentWord || "sinh viên").toLowerCase();
+  if (registerTitle) registerTitle.textContent = "Tạo tài khoản";
   const registerLead = document.getElementById("register-lead");
-  if (registerLead) registerLead.textContent = `Điền hồ sơ. Mật khẩu từ 8 ký tự, có cả chữ và số. ${data.teacherWord || "Giảng viên"} không đăng ký tại đây.`;
+  if (registerLead) registerLead.textContent = "Điền hồ sơ. Mật khẩu từ 8 ký tự, có cả chữ và số. Đây là tài khoản thường. Muốn lên giáo viên thì xác minh danh tính sau khi đăng nhập.";
   const codeCaption = document.getElementById("code-caption");
-  if (codeCaption) codeCaption.textContent = "Mã " + String(data.studentWord || "sinh viên").toLowerCase();
+  if (codeCaption) codeCaption.textContent = "Mã " + String(data.studentWord || "học sinh").toLowerCase() + " (nếu có)";
   if (document.getElementById("login-form")) document.title = "Đăng nhập · " + data.schoolName;
   if (document.getElementById("register-form")) document.title = "Đăng ký · " + data.schoolName;
   return data;

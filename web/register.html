@@ -14,13 +14,13 @@
         <div class="seal" id="brand-seal">THI</div>
         <p class="brand-kicker" id="brand-level">Đại học</p>
         <p class="brand-school" id="brand-school">Phòng thi trực tuyến</p>
-        <h1>Tạo tài khoản để vào phòng thi</h1>
-        <p id="brand-note">Sinh viên tự đăng ký theo lớp. Tài khoản giảng viên do quản trị tạo trong hồ sơ.</p>
+        <h1>Tạo tài khoản thường</h1>
+        <p id="brand-note">Ai cũng tạo được tài khoản và vào ngay. Muốn lên giáo viên thì xác minh số CCCD, admin duyệt rồi quyền mới đổi.</p>
         <div class="mechanism-list">
-          <div><strong>Hồ sơ đầy đủ</strong><span>Họ tên, email, điện thoại và mã sinh viên được lưu cùng tài khoản.</span></div>
-          <div><strong>Đúng khoa, đúng lớp</strong><span>Chỉ chọn lớp đã có trong hệ thống.</span></div>
-          <div><strong>Vào ngay</strong><span>Đăng ký xong là đăng nhập, không cần chờ duyệt.</span></div>
-          <div><strong>Mật khẩu riêng</strong><span>Bấm biểu tượng mắt để kiểm tra trước khi tạo.</span></div>
+          <div><strong>Cho mọi người</strong><span>Họ tên, email và mật khẩu là đủ để có tài khoản thường.</span></div>
+          <div><strong>Lớp là tùy chọn</strong><span>Có lớp thì thấy kỳ thi của lớp. Không có lớp vẫn tạo được tài khoản.</span></div>
+          <div><strong>Vào ngay</strong><span>Tạo xong là đăng nhập, không cần chờ duyệt.</span></div>
+          <div><strong>Lên giáo viên</strong><span>Vào Tài khoản, gửi số CCCD. Admin xác nhận danh tính trước khi đổi quyền.</span></div>
         </div>
       </div>
       <p id="brand-foot">Mẫu phòng thi giao được cho đại học, cao đẳng, phổ thông hoặc trung tâm.</p>
@@ -28,8 +28,8 @@
     <section class="login-panel">
       <form id="register-form" class="card login-card wide stack">
         <div>
-          <h2 id="register-title">Đăng ký sinh viên</h2>
-          <p class="muted" id="register-lead">Điền hồ sơ. Mật khẩu từ 8 ký tự, có cả chữ và số. Giảng viên không đăng ký tại đây.</p>
+          <h2 id="register-title">Tạo tài khoản</h2>
+          <p class="muted" id="register-lead">Điền hồ sơ. Mật khẩu từ 8 ký tự, có cả chữ và số. Tài khoản này là tài khoản thường. Muốn lên giáo viên thì xác minh danh tính sau khi đăng nhập.</p>
         </div>
         <div class="form-grid">
           <label class="wide">Họ tên<input name="fullName" autocomplete="name" required></label>
@@ -40,7 +40,7 @@
           <label>Nhập lại<span class="secret"><input name="confirm" type="password" autocomplete="new-password" minlength="8" required></span></label>
         </div>
         <fieldset class="plain form-grid" id="student-fields">
-          <label><span id="code-caption">Mã sinh viên</span><input name="studentCode" required></label>
+          <legend class="muted">Ngày sinh và giới tính dùng khi xác minh CCCD. Khoa, lớp và mã học sinh chỉ cần nếu bạn vào kỳ thi của một lớp.</legend>
           <label>Ngày sinh<input name="dob" type="date" required></label>
           <label>Giới tính
             <select name="gender" required>
@@ -50,8 +50,9 @@
               <option>Khác</option>
             </select>
           </label>
-          <label>Khoa<select name="faculty" required></select></label>
-          <label class="wide">Lớp<select name="className" required></select></label>
+          <label><span id="code-caption">Mã học sinh (nếu có)</span><input name="studentCode"></label>
+          <label>Khoa<select name="faculty"></select></label>
+          <label class="wide">Lớp<select name="className"></select></label>
         </fieldset>
         <p id="register-error" class="muted" role="alert"></p>
         <button class="btn primary" type="submit">Tạo tài khoản</button>

@@ -40,6 +40,7 @@
       </section>`;
 
   ui.content.innerHTML = `
+    ${isStudent ? `<section class="card panel" id="upgrade"><h2>Nâng cấp giáo viên</h2><p class="muted">Đang tải đơn xác minh...</p></section>` : ""}
     <div class="grid-2">
       <section class="card panel">
         <div class="profile-head">
@@ -73,8 +74,7 @@
       </section>
       ${academic}
     </div>
-    ${isStudent ? `<section class="card panel" id="upgrade"><h2>Nâng cấp giáo viên</h2><p class="muted">Đang tải đơn...</p></section>
-    <section class="card panel" id="history"><h2>Lịch sử thi</h2></section>` : ""}`;
+    ${isStudent ? `<section class="card panel" id="history"><h2>Lịch sử thi</h2></section>` : ""}`;
 
   const face = document.getElementById("avatar-face");
   const fileInput = document.getElementById("avatar-file");
@@ -142,7 +142,7 @@
   function upgradeForm(row) {
     const pending = row && row.status === "pending";
     const rejected = row && row.status === "rejected";
-    return `<p class="muted">Hệ thống kiểm tra số CCCD đủ 12 số, mã tỉnh, năm sinh và giới tính khớp hồ sơ, họ tên trùng tài khoản. Admin xác nhận trước khi quyền đổi thành giáo viên. Không có kết nối cơ sở CCCD nhà nước.</p>
+    return `<p class="muted">Tài khoản hiện tại là tài khoản thường. Muốn lên giáo viên thì gửi số CCCD tại đây. Hệ thống kiểm tra đủ 12 số, mã tỉnh, năm sinh và giới tính khớp hồ sơ, họ tên trùng tài khoản. Admin xác nhận trước khi quyền đổi. Không có kết nối cơ sở CCCD nhà nước.</p>
       ${pending ? `<p class="note">Đơn đang chờ duyệt. CCCD đã che: ${esc(row.cccd)}. Mã giáo viên ${esc(row.lecturerCode)} · ${esc(row.department)} · ${esc(row.faculty)}.</p>` : ""}
       ${rejected ? `<p class="note bad">Đơn bị từ chối: ${esc(row.note || "Không có lý do")}. Bạn có thể gửi lại.</p>` : ""}
       <form id="upgrade-form" class="stack">

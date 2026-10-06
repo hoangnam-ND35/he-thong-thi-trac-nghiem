@@ -4,7 +4,7 @@
   const isAdmin = me.role === "admin";
   const ui = mount({
     title: isAdmin ? "Hồ sơ và phân quyền" : "Học sinh",
-    lead: isAdmin ? "Admin đứng trên giáo viên và học sinh. Giáo viên do admin tạo. Học sinh có thể tự đăng ký." : "Giáo viên chỉ xem học sinh cùng khoa. Không tạo được giáo viên hay admin.",
+    lead: isAdmin ? "Admin đứng trên giáo viên và học sinh. Mọi người tự tạo tài khoản thường. Lên giáo viên phải xác minh CCCD và được admin duyệt." : "Giáo viên chỉ xem học sinh cùng khoa. Không tạo được giáo viên hay admin.",
     me
   });
   if (isAdmin) {
@@ -29,7 +29,7 @@
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Việc được làm</th><th>Học sinh</th><th>Giáo viên</th><th>Admin</th></tr></thead>
         <tbody>
-          <tr><td>Tự đăng ký và làm bài thi</td><td>Có</td><td>Không</td><td>Không</td></tr>
+          <tr><td>Tạo tài khoản thường và làm bài thi</td><td>Có</td><td>Không</td><td>Không</td></tr>
           <tr><td>Soạn câu hỏi, mở kỳ thi, xem kết quả</td><td>Không</td><td>Môn của mình</td><td>Mọi môn</td></tr>
           <tr><td>Xem danh sách học sinh</td><td>Không</td><td>Cùng khoa</td><td>Mọi khoa</td></tr>
           <tr><td>Tạo giáo viên hoặc admin</td><td>Không</td><td>Không</td><td>Có</td></tr>

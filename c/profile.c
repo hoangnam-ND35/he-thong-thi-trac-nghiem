@@ -104,7 +104,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
     trim_copy(email, sizeof(email), js_str(body, "email", ""));
     trim_copy(phone, sizeof(phone), js_str(body, "phone", ""));
     if (self_register && strcmp(role, "student") != 0) {
-        snprintf(err, err_cap, "Chỉ học sinh được tự đăng ký. Giáo viên và admin do quản trị tạo");
+        snprintf(err, err_cap, "Tài khoản tạo công khai là tài khoản thường. Muốn lên giáo viên thì xác minh danh tính sau khi đăng nhập");
         return 400;
     }
     if (!role_is(role, "student,lecturer,admin")) {
@@ -138,15 +138,21 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
         trim_copy(gender, sizeof(gender), js_str(body, "gender", ""));
         trim_copy(class_name, sizeof(class_name), js_str(body, "className", ""));
         trim_copy(faculty, sizeof(faculty), js_str(body, "faculty", ""));
-        if (!student_code[0] || strlen(dob) != 10 || !gender_ok(gender) || !class_name[0] || !faculty[0]) {
+        if (strlen(dob) != 10 || !gender_ok(gender)) {
+            snprintf(err, err_cap, "Cần ngày sinh và giới tính. Hai thông tin này dùng khi xác minh CCCD để lên giáo viên");
+            return 400;
+        }
+        if (self_register) {
+            if ((class_name[0] || faculty[0]) && !class_exists(class_name, faculty)) {
+                snprintf(err, err_cap, "Chọn khoa và lớp có trong hệ thống, hoặc bỏ trống cả hai nếu chỉ tạo tài khoản thường");
+                return 400;
+            }
+            if (!class_name[0]) faculty[0] = '\0';
+        } else if (!student_code[0] || !class_name[0] || !faculty[0] || !class_exists(class_name, faculty)) {
             snprintf(err, err_cap, "Thiếu hoặc sai thông tin học sinh");
             return 400;
         }
-        if (!class_exists(class_name, faculty)) {
-            snprintf(err, err_cap, "Lớp không thuộc khoa đã chọn");
-            return 400;
-        }
-        if (taken("SELECT COUNT(*) FROM students WHERE student_code=?", student_code)) {
+        if (student_code[0] && taken("SELECT COUNT(*) FROM students WHERE student_code=?", student_code)) {
             snprintf(err, err_cap, "Mã học sinh đã tồn tại");
             return 400;
         }
@@ -171,6 +177,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
         return 500;
     }
     if (strcmp(role, "student") == 0) {
+        if (!student_code[0]) snprintf(student_code, sizeof(student_code), "TK%06d", *user_id);
         stmt = db_prep("INSERT INTO students(user_id, profile_id, student_code, dob, gender, class_name, faculty, status) VALUES(?,?,?,?,?,?,?,'active')");
         if (stmt) {
             sqlite3_bind_int(stmt, 1, *user_id);

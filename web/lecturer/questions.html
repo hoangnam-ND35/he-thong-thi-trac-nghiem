@@ -8,7 +8,9 @@
   <script>
     (function () {
       var ids = new URLSearchParams(location.search).get("ids");
-      if (ids) location.replace("/exam/practice.html?ids=" + encodeURIComponent(ids));
+      if (ids) {
+        location.replace("/login.html?next=" + encodeURIComponent("/exam/practice.html?ids=" + ids));
+      }
     })();
   </script>
 </head>

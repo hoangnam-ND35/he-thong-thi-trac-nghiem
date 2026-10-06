@@ -60,6 +60,16 @@ function loginUrl(nextPath) {
   return "/login.html" + (next ? "?next=" + encodeURIComponent(next) : "");
 }
 
+function assignmentLoginUrl(targetPath) {
+  const next = safeNextPath(targetPath);
+  if (!next) return location.origin + "/login.html";
+  return location.origin + "/login.html?next=" + encodeURIComponent(next);
+}
+
+function isAssignmentNext(path) {
+  return /^\/exam\/(practice|enter)\.html/.test(String(path || ""));
+}
+
 function afterLoginPath(me, fallback) {
   const next = safeNextPath(new URLSearchParams(location.search).get("next") || "");
   if (!next) return fallback || roleHome(me.role);

@@ -5,7 +5,7 @@
     .map((value) => Number(value.trim()))
     .filter((value) => value > 0);
   if (wantedIdsEarly.length) {
-    location.replace("/exam/practice.html?ids=" + wantedIdsEarly.join(","));
+    location.replace(loginUrl("/exam/practice.html?ids=" + wantedIdsEarly.join(",")));
     return;
   }
 
@@ -63,7 +63,7 @@
   }
 
   function practiceUrl(ids) {
-    return location.origin + "/exam/practice.html?ids=" + ids.join(",");
+    return assignmentLoginUrl("/exam/practice.html?ids=" + ids.join(","));
   }
 
   function chaptersOf(list) {
@@ -397,7 +397,7 @@
   function sharePracticeLink(ids, title) {
     const url = practiceUrl(ids);
     const body = openModal(title, `
-      <p class="muted">Giống Azota: gửi link này cho học sinh. Họ mở link → đăng nhập (nếu cần) → vào thẳng màn hình làm bài trên web.</p>
+      <p class="muted">Gửi link này cho học sinh. Mở ra sẽ thấy trang đăng nhập trước, đăng nhập xong vào thẳng bài làm.</p>
       <label class="share-link-box">Link giao bài
         <input id="share-bank" readonly value="${esc(url)}">
       </label>

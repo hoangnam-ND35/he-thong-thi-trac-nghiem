@@ -1,5 +1,5 @@
-' Chay server phong thi o che do nen (khong cua so CMD).
-' Dong cua so nay khong tat server.
+' Dam bao server phong thi luon chay.
+' Neu bi tat (dong Cursor, tat process...) se tu bat lai.
 
 Option Explicit
 Dim shell, fso, root, exe, wmi, procs, p, already
@@ -10,12 +10,11 @@ root = fso.GetParentFolderName(WScript.ScriptFullName)
 exe = root & "\build\online_exam.exe"
 
 If Not fso.FileExists(exe) Then
-  shell.Run """" & root & "\build.bat""", 1, True
+  If fso.FileExists(root & "\build.bat") Then
+    shell.Run """" & root & "\build.bat""", 0, True
+  End If
 End If
-If Not fso.FileExists(exe) Then
-  MsgBox "Chua bien dich duoc server. Mo build.bat de xem loi.", 16, "Phong thi truc tuyen"
-  WScript.Quit 1
-End If
+If Not fso.FileExists(exe) Then WScript.Quit 1
 
 already = False
 Set wmi = GetObject("winmgmts:\\.\root\cimv2")
@@ -28,5 +27,5 @@ Next
 If Not already Then
   shell.CurrentDirectory = root
   shell.Run """" & exe & """", 0, False
-  WScript.Sleep 1200
+  WScript.Sleep 1500
 End If

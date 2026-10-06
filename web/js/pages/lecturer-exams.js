@@ -209,8 +209,8 @@
   function shareExam(id) {
     shareLink(
       "Link làm bài",
-      location.origin + "/exam/enter.html?examId=" + id,
-      "Học sinh bấm link này sẽ vào thẳng bài làm. Chưa đăng nhập thì hệ thống yêu cầu đăng nhập trước."
+      assignmentLoginUrl("/exam/enter.html?examId=" + id),
+      "Học sinh mở link sẽ thấy trang đăng nhập trước. Đăng nhập xong vào thẳng bài làm."
     );
   }
 

@@ -1,8 +1,8 @@
-' Bat server nen (neu chua chay) roi mo Chrome toi trang web.
-' Khong can run.bat. Dong Chrome khong tat server.
+' Mo Chrome toi trang phong thi.
+' Tu bat server neu chua chay.
 
 Option Explicit
-Dim shell, fso, root, url, chrome, edge
+Dim shell, fso, root, url, chrome
 
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -10,6 +10,7 @@ root = fso.GetParentFolderName(WScript.ScriptFullName)
 url = "http://127.0.0.1:8080/"
 
 shell.Run "wscript.exe """ & root & "\start-server.vbs""", 0, True
+WScript.Sleep 800
 
 chrome = ""
 If fso.FileExists("C:\Program Files\Google\Chrome\Application\chrome.exe") Then
@@ -19,11 +20,7 @@ ElseIf fso.FileExists("C:\Program Files (x86)\Google\Chrome\Application\chrome.e
 End If
 
 If chrome <> "" Then
-  shell.Run """" & chrome & """ --new-window """ & url & """", 1, False
+  shell.Run """" & chrome & """ """ & url & """", 1, False
 Else
-  edge = "msedge"
-  On Error Resume Next
-  shell.Run edge & " """ & url & """", 1, False
-  If Err.Number <> 0 Then shell.Run "explorer.exe """ & url & """", 1, False
-  On Error Goto 0
+  shell.Run "explorer.exe """ & url & """", 1, False
 End If

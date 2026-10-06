@@ -1,5 +1,5 @@
 (async function () {
-  const me = await guard(["admin", "lecturer"]);
+  const me = await guard(["admin", "partner", "lecturer"]);
   if (!me) return;
   const ui = mount({ title: "Kết quả và thống kê", me });
   const exams = await API.get("/api/exams");

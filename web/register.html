@@ -51,8 +51,14 @@
             </select>
           </label>
           <label><span id="code-caption">Mã học sinh (nếu có)</span><input name="studentCode"></label>
-          <label>Khoa<select name="faculty"></select></label>
-          <label class="wide">Lớp<select name="className"></select></label>
+          <label>Khoa
+            <input name="faculty" list="faculty-list" autocomplete="organization" placeholder="Gõ để tìm hoặc chọn khoa">
+          </label>
+          <label class="wide">Lớp
+            <input name="className" list="class-list" autocomplete="off" placeholder="Gõ mã lớp, khoa sẽ tự điền">
+          </label>
+          <datalist id="faculty-list"></datalist>
+          <datalist id="class-list"></datalist>
         </fieldset>
         <p id="register-error" class="muted" role="alert"></p>
         <button class="btn primary" type="submit">Tạo tài khoản</button>

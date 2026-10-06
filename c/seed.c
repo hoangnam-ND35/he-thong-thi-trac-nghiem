@@ -117,6 +117,7 @@ void seed_if_empty(void) {
     if (db_count("SELECT COUNT(*) FROM users") > 0) return;
     db_begin();
     admin_id = add_user("admin", "Admin@123", "admin", "Quản trị hệ thống", "admin@school.edu", "0901000001");
+    add_user("dt.ban", "Dt@12345", "partner", "Đối tác bán trường", "doitac@school.edu", "0901000099");
     gv_a = add_user("gv.anva", "Gv@12345", "lecturer", "Nguyễn Văn A", "anva@school.edu", "0901000002");
     gv_b = add_user("gv.thib", "Gv@12345", "lecturer", "Trần Thị B", "thib@school.edu", "0901000003");
     stmt = db_prep("INSERT INTO lecturers(user_id, profile_id, lecturer_code, department, faculty, status) VALUES(?,?,?,?,?,'active')");

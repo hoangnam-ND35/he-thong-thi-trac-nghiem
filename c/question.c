@@ -97,7 +97,7 @@ void route_questions_list(Request* request, Response* response) {
     char like[96];
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     query_get(request->query, "difficulty", difficulty, sizeof(difficulty));
     query_get(request->query, "q", q, sizeof(q));
     snprintf(like, sizeof(like), "%%%s%%", q);
@@ -162,7 +162,11 @@ void route_question_create(Request* request, Response* response) {
     sqlite3_stmt* stmt;
     int question_id;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
+    if (strcmp(actor.role, "admin") != 0 && !package_on("pkgQuestion")) {
+        reply_fail(response, 403, "Gói bán cho trường chưa gồm ngân hàng câu hỏi");
+        return;
+    }
     subject_id = (int)js_num(request->json, "subjectId", 0);
     if (!owns_subject(&actor, subject_id)) {
         reply_fail(response, 403, "Bạn không thêm câu cho môn này");
@@ -212,7 +216,7 @@ void route_question_update(Request* request, Response* response) {
     int used;
     char text[2000];
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     stmt = db_prep("SELECT subject_id FROM questions WHERE id=?");
     if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
         sqlite3_finalize(stmt);
@@ -292,7 +296,7 @@ void route_question_disable(Request* request, Response* response) {
     sqlite3_stmt* stmt;
     int subject_id = 0;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     stmt = db_prep("SELECT subject_id FROM questions WHERE id=?");
     if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
         sqlite3_finalize(stmt);
@@ -320,7 +324,7 @@ void route_question_bank(Request* request, Response* response) {
     int subject_id = query_int(request->query, "subjectId");
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!owns_subject(&actor, subject_id)) {
         reply_fail(response, 403, "Bạn không xem được ngân hàng môn này");
         return;
@@ -379,7 +383,7 @@ void route_question_template(Request* request, Response* response) {
                       "subjectCode,chapter,difficulty,score,question,answerA,answerB,answerC,answerD,correct\n"
                       "JAVA101,Chương 1,easy,1,\"Java chạy trên môi trường nào?\",JVM,Browser,BIOS,DNS,A\n";
     char* body;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     body = (char*)malloc(strlen(csv) + 1);
     if (!body) {
         reply_fail(response, 500, "Lỗi dữ liệu");
@@ -431,7 +435,7 @@ void route_question_export(Request* request, Response* response) {
     char* csv = (char*)malloc(256);
     size_t n = 0;
     size_t cap = 256;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     memcpy(csv, "\xEF\xBB\xBF", 3);
     n = 3;
     csv[n] = 0;
@@ -528,7 +532,11 @@ void route_question_import(Request* request, Response* response) {
     char* line;
     int imported = 0;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
+    if (strcmp(actor.role, "admin") != 0 && !package_on("pkgQuestion")) {
+        reply_fail(response, 403, "Gói bán cho trường chưa gồm ngân hàng câu hỏi");
+        return;
+    }
     csv = (char*)malloc(strlen(js_str(request->json, "csv", "")) + 1);
     if (!csv) {
         reply_fail(response, 500, "Lỗi dữ liệu");

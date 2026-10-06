@@ -69,7 +69,7 @@ static void write_exam_row(W* w, sqlite3_stmt* stmt, const Actor* actor) {
     w_key(w, "attemptCount");
     w_num(w, db_int(stmt, 25));
     w_key(w, "canManage");
-    w_bool(w, strcmp(actor->role, "admin") == 0 || owns_subject(actor, subject_id));
+    w_bool(w, strcmp(actor->role, "admin") == 0 || strcmp(actor->role, "partner") == 0 || owns_subject(actor, subject_id));
     w_key(w, "matrix");
     w_arr(w);
     {
@@ -97,7 +97,7 @@ void route_exams_list(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     stmt = db_prep(strcmp(actor.role, "lecturer") == 0 ? 
         "SELECT e.id, e.subject_id, e.title, e.description, e.start_time, e.end_time, e.duration_minutes, "
         "e.easy_count, e.medium_count, e.hard_count, e.total_questions, e.total_score, e.shuffle_questions, e.shuffle_answers, "
@@ -115,7 +115,10 @@ void route_exams_list(Request* request, Response* response) {
     if (strcmp(actor.role, "lecturer") == 0 && stmt) sqlite3_bind_int(stmt, 1, actor.lecturer_id);
     reply_begin(&w);
     w_arr(&w);
-    while (stmt && sqlite3_step(stmt) == SQLITE_ROW) write_exam_row(&w, stmt, &actor);
+    while (stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+        if (strcmp(db_text(stmt, 3), "__practice__") == 0) continue;
+        write_exam_row(&w, stmt, &actor);
+    }
     sqlite3_finalize(stmt);
     w_end(&w);
     reply_json(response, &w);
@@ -362,7 +365,11 @@ void route_exam_create(Request* request, Response* response) {
     sqlite3_stmt* stmt;
     int exam_id;
     int publish;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
+    if (strcmp(actor.role, "admin") != 0 && !package_on("pkgExam")) {
+        reply_fail(response, 403, "Gói bán cho trường chưa gồm chức năng kỳ thi");
+        return;
+    }
     if (!read_exam_body(request, response, 0, &subject_id, title, description, &start, &end, &minutes, &easy, &medium, &hard,
                         &max_attempts, &class_id, &shuffle_q, &shuffle_a, &auto_submit, &short_s, &long_s, &grace, &total)) return;
     if (!owns_subject(&actor, subject_id)) {
@@ -422,7 +429,7 @@ void route_exam_update(Request* request, Response* response) {
     char title[200];
     char description[800];
     sqlite3_stmt* stmt;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không sửa được kỳ thi này");
         return;
@@ -465,7 +472,7 @@ void route_exam_publish(Request* request, Response* response) {
     sqlite3_stmt* stmt;
     int subject_id, easy, medium, hard;
     double total = 0;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không mở được kỳ thi này");
         return;
@@ -505,7 +512,7 @@ void route_exam_publish(Request* request, Response* response) {
 void route_exam_close(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không đóng được kỳ thi này");
         return;
@@ -522,7 +529,7 @@ void route_exam_delete(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không xóa được kỳ thi này");
         return;
@@ -558,7 +565,7 @@ void route_exam_analysis(Request* request, Response* response) {
     double sum = 0, highest = 0, lowest = 0;
     int any = 0;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không xem được thống kê này");
         return;
@@ -628,7 +635,11 @@ void route_exam_results(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
+    if (strcmp(actor.role, "admin") != 0 && !package_on("pkgResult")) {
+        reply_fail(response, 403, "Gói bán cho trường chưa gồm chức năng kết quả");
+        return;
+    }
     if (!can_manage_exam(&actor, request->id)) {
         reply_fail(response, 403, "Bạn không xem được kết quả này");
         return;

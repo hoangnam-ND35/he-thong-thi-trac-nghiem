@@ -1,13 +1,19 @@
 (async function () {
-  const me = await guard(["admin", "lecturer"]);
+  const me = await guard(["admin", "partner", "lecturer"]);
   if (!me) return;
   const isAdmin = me.role === "admin";
+  const isPartner = me.role === "partner";
+  const canSchool = isAdmin || isPartner;
   const ui = mount({
-    title: isAdmin ? "Hồ sơ và phân quyền" : "Học sinh",
-    lead: isAdmin ? "Admin đứng trên giáo viên và học sinh. Mọi người tự tạo tài khoản thường. Lên giáo viên phải xác minh CCCD và được admin duyệt." : "Giáo viên chỉ xem học sinh cùng khoa. Không tạo được giáo viên hay admin.",
+    title: canSchool ? "Hồ sơ và phân quyền" : "Học sinh",
+    lead: isAdmin
+      ? "Admin là quyền cao nhất. Đối tác bán gói cho trường, đứng dưới admin và trên giáo viên."
+      : isPartner
+        ? "Đối tác tạo học sinh và giáo viên, xét duyệt CCCD. Không tạo được admin và không đụng cấu hình hệ thống."
+        : "Giáo viên chỉ xem học sinh cùng khoa. Không tạo được giáo viên hay admin.",
     me
   });
-  if (isAdmin) {
+  if (canSchool) {
     const add = document.createElement("button");
     add.className = "btn primary";
     add.textContent = "Thêm hồ sơ";
@@ -27,14 +33,13 @@
       <h2>Phân quyền</h2>
       <p class="muted">Học sinh làm bài. Giáo viên soạn môn của mình. Admin làm được mọi việc của hai vai dưới và là quyền cao nhất.</p>
       <div class="table-wrap"><table class="data">
-        <thead><tr><th>Việc được làm</th><th>Học sinh</th><th>Giáo viên</th><th>Admin</th></tr></thead>
+        <thead><tr><th>Việc được làm</th><th>Học sinh</th><th>Giáo viên</th><th>Đối tác</th><th>Admin</th></tr></thead>
         <tbody>
-          <tr><td>Tạo tài khoản thường và làm bài thi</td><td>Có</td><td>Không</td><td>Không</td></tr>
-          <tr><td>Soạn câu hỏi, mở kỳ thi, xem kết quả</td><td>Không</td><td>Môn của mình</td><td>Mọi môn</td></tr>
-          <tr><td>Xem danh sách học sinh</td><td>Không</td><td>Cùng khoa</td><td>Mọi khoa</td></tr>
-          <tr><td>Tạo giáo viên hoặc admin</td><td>Không</td><td>Không</td><td>Có</td></tr>
-          <tr><td>Xin lên giáo viên bằng CCCD</td><td>Gửi đơn</td><td>Không</td><td>Duyệt hoặc từ chối</td></tr>
-          <tr><td>Khóa tài khoản, cấu hình, nhật ký, nhận diện trường</td><td>Không</td><td>Không</td><td>Có</td></tr>
+          <tr><td>Tạo tài khoản thường và làm bài thi</td><td>Có</td><td>Không</td><td>Không</td><td>Không</td></tr>
+          <tr><td>Soạn câu hỏi, mở kỳ thi, xem kết quả</td><td>Không</td><td>Môn của mình</td><td>Mọi môn trong gói</td><td>Mọi môn</td></tr>
+          <tr><td>Bán gói chức năng và nhận diện trường</td><td>Không</td><td>Không</td><td>Có</td><td>Có</td></tr>
+          <tr><td>Tạo giáo viên, xét duyệt CCCD</td><td>Gửi đơn</td><td>Không</td><td>Có</td><td>Có</td></tr>
+          <tr><td>Tạo admin, cấu hình, sao lưu, nhật ký</td><td>Không</td><td>Không</td><td>Không</td><td>Có</td></tr>
         </tbody>
       </table></div>
     </section>`;
@@ -42,12 +47,12 @@
 
   function paintShell() {
     ui.content.innerHTML = `
+      ${canSchool ? `<section class="card panel" id="upgrade-box"><h2>Xét duyệt giáo viên</h2><p class="muted">Đang tải đơn...</p></section>` : ""}
       ${permissionBoard()}
-      ${isAdmin ? `<section class="card panel" id="upgrade-box"><h2>Đơn xin lên giáo viên</h2><p class="muted">Đang tải đơn...</p></section>` : ""}
       <div class="toolbar">
         <div class="filters" style="margin:0">
           <input id="q" placeholder="Tìm tên, mã, email" aria-label="Tìm hồ sơ">
-          ${isAdmin ? `<select id="role" aria-label="Vai trò"><option value="">Mọi vai trò</option><option value="admin">Admin</option><option value="lecturer">Giáo viên</option><option value="student">Học sinh</option></select>
+          ${canSchool ? `<select id="role" aria-label="Vai trò"><option value="">Mọi vai trò</option>${isAdmin ? `<option value="admin">Admin</option><option value="partner">Đối tác</option>` : ""}<option value="lecturer">Giáo viên</option><option value="student">Học sinh</option></select>
           <select id="state" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="active">Hoạt động</option><option value="locked">Đã khóa</option><option value="disabled">Vô hiệu</option></select>` : ""}
           <input id="faculty" placeholder="Khoa" aria-label="Khoa">
           <input id="className" placeholder="Lớp" aria-label="Lớp">
@@ -83,8 +88,8 @@
     const box = document.getElementById("upgrade-box");
     if (!box) return;
     const rows = await API.get("/api/admin/teacher-upgrades");
-    box.innerHTML = `<h2>Đơn xin lên giáo viên</h2>
-      <p class="muted">Số CCCD chỉ hiện ở đây để đối chiếu. Học sinh chỉ thấy số đã che. Duyệt xong tài khoản thành giáo viên, lịch sử thi cũ vẫn giữ.</p>
+    box.innerHTML = `<h2>Xét duyệt giáo viên</h2>
+      <p class="muted">Số CCCD chỉ hiện ở đây để đối chiếu. Học sinh chỉ thấy số đã che. Duyệt xong tài khoản thành giáo viên. Có thể mở riêng ở mục Xét duyệt trên thanh menu.</p>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Tài khoản</th><th>CCCD</th><th>Mã giáo viên</th><th></th></tr></thead>
         <tbody>${rows.map(upgradeStatus).join("") || "<tr><td colspan='4'>Chưa có đơn chờ duyệt</td></tr>"}</tbody>
@@ -150,7 +155,7 @@
     if (count) count.textContent = rows.length + " hồ sơ";
     body.innerHTML = rows.map((row) => `<tr>
       <td>${esc(row.username)}<div class="muted">${esc(row.role === "lecturer" ? (row.lecturerCode || "") : (row.studentCode || ""))}</div></td>
-      <td>${esc(row.fullName)}<div class="muted">${esc(roleLabel(row.role))}${row.role === "admin" ? " · cao nhất" : ""}</div></td>
+      <td>${esc(row.fullName)}<div class="muted">${esc(roleLabel(row.role))}${row.role === "admin" ? " · cao nhất" : row.role === "partner" ? " · dưới admin" : ""}</div></td>
       <td>${esc(row.role === "lecturer" ? (row.department || "—") : (row.className || "—"))}<div class="muted">${esc(row.faculty || "")}</div></td>
       <td>${esc(row.email)}<div class="muted">${esc(row.phone || "")}</div></td>
       <td>${badge(row)}</td>
@@ -166,7 +171,7 @@
     const body = openModal(row.fullName, `<p class="muted">${esc(roleLabel(row.role))} · ${esc(row.username)}</p>
       <div class="stack">
         ${row.studentId ? `<button class="btn" id="act-history" type="button">Lịch sử thi</button>` : ""}
-        ${isAdmin ? `<button class="btn" id="act-edit" type="button">Sửa hồ sơ</button>
+        ${(isAdmin || (isPartner && (row.role === "student" || row.role === "lecturer"))) ? `<button class="btn" id="act-edit" type="button">Sửa hồ sơ</button>
           <button class="btn" id="act-reset" type="button">Đặt lại mật khẩu</button>
           <button class="btn" id="act-lock" type="button">${row.accountStatus === "active" ? "Khóa tài khoản" : "Mở khóa tài khoản"}</button>
           <button class="btn" id="act-disable" type="button">${row.status === "active" ? "Vô hiệu hồ sơ" : "Mở lại hồ sơ"}</button>` : ""}
@@ -185,7 +190,7 @@
   function formFields(row) {
     const role = row?.role || "student";
     return `<form id="profile-form" class="stack">
-      ${row ? "" : `<label>Vai trò<select name="role"><option value="student">Học sinh</option><option value="lecturer">Giáo viên</option><option value="admin">Admin</option></select></label>
+      ${row ? "" : `<label>Vai trò<select name="role"><option value="student">Học sinh</option><option value="lecturer">Giáo viên</option>${isAdmin ? `<option value="partner">Đối tác</option><option value="admin">Admin</option>` : ""}</select></label>
       <label>Tên đăng nhập<input name="username" required></label>
       <label>Mật khẩu<input name="password" type="password" minlength="8" required></label>`}
       <label>Họ tên<input name="fullName" value="${esc(row?.fullName || "")}" required></label>
@@ -196,18 +201,57 @@
     </form>`;
   }
 
+  let catalog = { faculties: [], classes: [] };
+
+  API.get("/api/auth/register-options").then((data) => { catalog = data || catalog; }).catch(() => {});
+
+  function catalogLists(facultyValue) {
+    const faculties = catalog.faculties || [];
+    const classes = (catalog.classes || []).filter((row) => !facultyValue || row.faculty === facultyValue);
+    return `<datalist id="profile-faculty-list">${faculties.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
+      <datalist id="profile-class-list">${classes.map((row) => `<option value="${esc(row.name)}" label="${esc(row.faculty)}"></option>`).join("")}</datalist>`;
+  }
+
+  function bindClassFaculty(form) {
+    if (!form.className || !form.faculty) return;
+    const syncLists = () => {
+      const lists = form.querySelector("#profile-class-list");
+      if (!lists) return;
+      const faculty = form.faculty.value.trim();
+      const classes = (catalog.classes || []).filter((row) => !faculty || row.faculty === faculty);
+      lists.innerHTML = classes.map((row) => `<option value="${esc(row.name)}" label="${esc(row.faculty)}"></option>`).join("");
+    };
+    const fillFaculty = () => {
+      const name = form.className.value.trim().toLowerCase();
+      if (!name) return;
+      const hit = (catalog.classes || []).find((row) => row.name.toLowerCase() === name)
+        || (catalog.classes || []).find((row) => row.name.toLowerCase().startsWith(name));
+      if (hit) {
+        form.className.value = hit.name;
+        form.faculty.value = hit.faculty;
+        syncLists();
+      }
+    };
+    form.className.addEventListener("change", fillFaculty);
+    form.className.addEventListener("blur", fillFaculty);
+    form.faculty.addEventListener("input", syncLists);
+    form.faculty.addEventListener("change", syncLists);
+  }
+
   function roleFields(role, row) {
     if (role === "student") {
       return `<label>Mã học sinh<input name="studentCode" value="${esc(row?.studentCode || "")}" required></label>
         <label>Ngày sinh<input name="dob" type="date" value="${esc(row?.dob || "")}"></label>
         <label>Giới tính<select name="gender"><option ${row?.gender === "Nam" ? "selected" : ""}>Nam</option><option ${row?.gender === "Nữ" ? "selected" : ""}>Nữ</option><option ${row?.gender === "Khác" ? "selected" : ""}>Khác</option></select></label>
-        <label>Lớp<input name="className" value="${esc(row?.className || "")}" required></label>
-        <label>Khoa<input name="faculty" value="${esc(row?.faculty || "")}" placeholder="Tên khoa" required></label>`;
+        <label>Lớp<input name="className" list="profile-class-list" value="${esc(row?.className || "")}" placeholder="Gõ hoặc chọn lớp" required></label>
+        <label>Khoa<input name="faculty" list="profile-faculty-list" value="${esc(row?.faculty || "")}" placeholder="Gõ hoặc chọn khoa" required></label>
+        ${catalogLists(row?.faculty || "")}`;
     }
     if (role === "lecturer") {
       return `<label>Mã giáo viên<input name="lecturerCode" value="${esc(row?.lecturerCode || "")}" required></label>
         <label>Bộ môn<input name="department" value="${esc(row?.department || "")}" required></label>
-        <label>Khoa<input name="faculty" value="${esc(row?.faculty || "")}" placeholder="Tên khoa" required></label>`;
+        <label>Khoa<input name="faculty" list="profile-faculty-list" value="${esc(row?.faculty || "")}" placeholder="Gõ hoặc chọn khoa" required></label>
+        ${catalogLists("")}`;
     }
     return "";
   }
@@ -216,7 +260,10 @@
     const body = openModal(row ? "Sửa hồ sơ" : "Thêm hồ sơ", formFields(row));
     const form = body.querySelector("#profile-form");
     const extra = body.querySelector("#role-fields");
-    const paint = () => { extra.innerHTML = roleFields(row?.role || form.role?.value || "student", row); };
+    const paint = () => {
+      extra.innerHTML = roleFields(row?.role || form.role?.value || "student", row);
+      bindClassFaculty(form);
+    };
     paint();
     if (form.role) form.role.onchange = paint;
     form.onsubmit = async (event) => {
@@ -269,5 +316,5 @@
 
   paintShell();
   load().catch((error) => { ui.content.innerHTML = `<p class="note bad">${esc(error.message)}</p>`; });
-  if (isAdmin) loadUpgrades().catch((error) => toast(error.message, "bad"));
+  if (canSchool) loadUpgrades().catch((error) => toast(error.message, "bad"));
 })();

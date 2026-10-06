@@ -107,7 +107,7 @@ int create_account(const Js* body, int self_register, int* user_id, char* err, s
         snprintf(err, err_cap, "Tài khoản tạo công khai là tài khoản thường. Muốn lên giáo viên thì xác minh danh tính sau khi đăng nhập");
         return 400;
     }
-    if (!role_is(role, "student,lecturer,admin")) {
+    if (!role_is(role, "student,lecturer,partner,admin")) {
         snprintf(err, err_cap, "Vai trò không hợp lệ");
         return 400;
     }
@@ -258,7 +258,7 @@ void route_profiles_list(Request* request, Response* response) {
     char like_faculty[140];
     char like_class[80];
     W w;
-    if (!require_role(request, response, &actor, "admin,lecturer")) return;
+    if (!require_role(request, response, &actor, "admin,partner,lecturer")) return;
     copy_str(role, sizeof(role), "");
     query_get(request->query, "role", role, sizeof(role));
     query_get(request->query, "q", q, sizeof(q));
@@ -313,7 +313,11 @@ void route_profiles_create(Request* request, Response* response) {
     int user_id = 0;
     int status;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (strcmp(actor.role, "partner") == 0 && !role_is(js_str(request->json, "role", "student"), "student,lecturer")) {
+        reply_fail(response, 403, "Đối tác chỉ tạo được học sinh và giáo viên");
+        return;
+    }
     status = create_account(request->json, 0, &user_id, err, sizeof(err));
     if (status) {
         reply_fail(response, status, err);
@@ -380,7 +384,7 @@ void route_profile_update(Request* request, Response* response) {
     int profile_id = request->id;
     int user_id = 0;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     stmt = db_prep("SELECT user_id, role FROM profiles WHERE id=?");
     if (stmt) sqlite3_bind_int(stmt, 1, profile_id);
     if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
@@ -391,6 +395,10 @@ void route_profile_update(Request* request, Response* response) {
     user_id = db_int(stmt, 0);
     copy_str(role, sizeof(role), db_text(stmt, 1));
     sqlite3_finalize(stmt);
+    if (strcmp(actor.role, "partner") == 0 && strcmp(role, "student") != 0 && strcmp(role, "lecturer") != 0) {
+        reply_fail(response, 403, "Đối tác chỉ sửa học sinh và giáo viên. Admin vẫn cao hơn.");
+        return;
+    }
     trim_copy(full_name, sizeof(full_name), js_str(request->json, "fullName", ""));
     trim_copy(email, sizeof(email), js_str(request->json, "email", ""));
     trim_copy(phone, sizeof(phone), js_str(request->json, "phone", ""));
@@ -486,6 +494,21 @@ static int active_admin_count(void) {
         -1, -1);
 }
 
+static int partner_scope(Response* response, const Actor* actor, int profile_id) {
+    char role[16];
+    int user_id = 0;
+    if (strcmp(actor->role, "partner") != 0) return 1;
+    if (!profile_role(profile_id, &user_id, role, sizeof(role))) {
+        reply_fail(response, 404, "Không tìm thấy hồ sơ");
+        return 0;
+    }
+    if (strcmp(role, "student") != 0 && strcmp(role, "lecturer") != 0) {
+        reply_fail(response, 403, "Đối tác chỉ quản lý học sinh và giáo viên. Admin vẫn cao hơn.");
+        return 0;
+    }
+    return 1;
+}
+
 static int protect_top_admin(Response* response, int profile_id, int* user_id) {
     char role[16];
     if (!profile_role(profile_id, user_id, role, sizeof(role))) {
@@ -527,7 +550,8 @@ static void account_done(Response* response) {
 void route_profile_lock(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     if (!protect_top_admin(response, request->id, &user_id)) return;
     if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không khóa chính tài khoản đang dùng");
@@ -542,7 +566,8 @@ void route_profile_lock(Request* request, Response* response) {
 void route_profile_unlock(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     if (!profile_user(request->id, &user_id)) {
         reply_fail(response, 404, "Không tìm thấy hồ sơ");
         return;
@@ -555,7 +580,8 @@ void route_profile_unlock(Request* request, Response* response) {
 void route_profile_disable(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     if (!protect_top_admin(response, request->id, &user_id)) return;
     if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không vô hiệu hồ sơ này");
@@ -569,7 +595,8 @@ void route_profile_disable(Request* request, Response* response) {
 
 void route_profile_enable(Request* request, Response* response) {
     Actor actor;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     set_status("UPDATE profiles SET status=? WHERE id=?", request->id, "active");
     audit_add(actor.user_id, "ENABLE", "Mở lại hồ sơ", request->ip);
     account_done(response);
@@ -584,7 +611,8 @@ void route_profile_reset(Request* request, Response* response) {
     char hex[8];
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     if (!profile_user(request->id, &user_id)) {
         reply_fail(response, 404, "Không tìm thấy hồ sơ");
         return;
@@ -616,7 +644,8 @@ void route_profile_reset(Request* request, Response* response) {
 void route_profile_delete(Request* request, Response* response) {
     Actor actor;
     int user_id = 0;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!partner_scope(response, &actor, request->id)) return;
     if (!protect_top_admin(response, request->id, &user_id)) return;
     if (user_id == actor.user_id) {
         reply_fail(response, 400, "Không xóa hồ sơ này");
@@ -669,7 +698,7 @@ static int can_view_student(const Actor* actor, int student_id) {
     char faculty[128];
     int user_id = 0;
     int ok = 0;
-    if (strcmp(actor->role, "admin") == 0) return 1;
+    if (strcmp(actor->role, "admin") == 0 || strcmp(actor->role, "partner") == 0) return 1;
     stmt = db_prep("SELECT user_id, faculty FROM students WHERE id=?");
     if (stmt) sqlite3_bind_int(stmt, 1, student_id);
     if (stmt && sqlite3_step(stmt) == SQLITE_ROW) {

@@ -10,6 +10,17 @@ const NAV = {
     ["/admin/settings.html", "Cấu hình"],
     ["/admin/audit.html", "Nhật ký"]
   ],
+  partner: [
+    ["/admin/sale.html", "Bán cho trường"],
+    ["/admin/brand.html", "Nhận diện trường"],
+    ["/admin/profiles.html", "Hồ sơ"],
+    ["/admin/upgrades.html", "Xét duyệt"],
+    ["/admin/subjects.html", "Môn học"],
+    ["/lecturer/questions.html", "Ngân hàng câu hỏi"],
+    ["/lecturer/exams.html", "Kỳ thi"],
+    ["/lecturer/results.html", "Kết quả"],
+    ["/student/profile.html", "Tài khoản"]
+  ],
   lecturer: [
     ["/lecturer/dashboard.html", "Tổng quan"],
     ["/admin/subjects.html", "Môn học"],
@@ -33,12 +44,32 @@ function esc(value) {
 
 function roleHome(role) {
   if (role === "admin") return "/admin/dashboard.html";
+  if (role === "partner") return "/admin/sale.html";
   if (role === "lecturer") return "/lecturer/dashboard.html";
   return "/student/dashboard.html";
 }
 
+function safeNextPath(value) {
+  const raw = String(value || "").trim();
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "";
+  return raw;
+}
+
+function loginUrl(nextPath) {
+  const next = safeNextPath(nextPath || (location.pathname + location.search));
+  return "/login.html" + (next ? "?next=" + encodeURIComponent(next) : "");
+}
+
+function afterLoginPath(me, fallback) {
+  const next = safeNextPath(new URLSearchParams(location.search).get("next") || "");
+  if (!next) return fallback || roleHome(me.role);
+  if (me.role === "student") return next;
+  if (next.startsWith("/student/") || next.startsWith("/exam/")) return roleHome(me.role);
+  return next;
+}
+
 function roleLabel(role) {
-  return { admin: "Admin", lecturer: "Giáo viên", student: "Học sinh" }[role] || role;
+  return { admin: "Admin", partner: "Đối tác", lecturer: "Giáo viên", student: "Học sinh" }[role] || role;
 }
 
 function paintAvatar(el, src, letter) {
@@ -114,9 +145,14 @@ function actionLabel(action) {
     SEED: "Khởi tạo dữ liệu",
     BACKUP: "Sao lưu",
     REGISTER: "Đăng ký",
+    SALE_PACKAGE: "Bán gói cho trường",
+    PAY_PACKAGE: "Thanh toán gói",
     REQUEST_TEACHER: "Xin lên giáo viên",
     APPROVE_TEACHER: "Duyệt giáo viên",
     REJECT_TEACHER: "Từ chối giáo viên",
+    CREATE_TEACHER_CODE: "Tạo mã giáo viên",
+    REDEEM_TEACHER_CODE: "Dùng mã giáo viên",
+    DISABLE_TEACHER_CODE: "Tắt mã giáo viên",
     CHANGE_PASSWORD: "Đổi mật khẩu",
     CREATE_PROFILE: "Tạo hồ sơ",
     UPDATE_PROFILE: "Sửa hồ sơ",
@@ -273,15 +309,26 @@ function openPassword(forced) {
 }
 
 async function guard(roles) {
+  const path = location.pathname;
+  const ids = new URLSearchParams(location.search).get("ids") || "";
+  const practiceFromBank = path.includes("/lecturer/questions.html") && ids;
   try {
     const me = await API.get("/api/auth/me");
     if (roles && !roles.includes(me.role)) {
+      if (me.role === "student" && practiceFromBank) {
+        location.href = "/exam/practice.html?ids=" + encodeURIComponent(ids);
+        return null;
+      }
       location.href = roleHome(me.role);
       return null;
     }
     return me;
   } catch (error) {
-    if (!location.pathname.endsWith("/login.html")) location.href = "/login.html";
+    if (practiceFromBank) {
+      location.href = loginUrl("/exam/practice.html?ids=" + encodeURIComponent(ids));
+      return null;
+    }
+    if (!path.endsWith("/login.html")) location.href = loginUrl();
     return null;
   }
 }
@@ -358,13 +405,16 @@ function applyBrand(brand) {
 function mount(options) {
   const me = options.me;
   const admin = me.role === "admin";
+  const wide = admin || me.role === "partner";
   const link = ([href, label]) => `<a class="${location.pathname === href ? "active" : ""}" href="${href}">${esc(label)}</a>`;
   const links = admin
     ? [["Điều hành", [
         ["/admin/dashboard.html", "Tổng quan"],
+        ["/admin/sale.html", "Bán cho trường"],
         ["/admin/brand.html", "Nhận diện trường"],
         ["/admin/settings.html", "Cấu hình"],
-        ["/admin/audit.html", "Nhật ký"]
+        ["/admin/audit.html", "Nhật ký"],
+        ["/admin/upgrades.html", "Xét duyệt"]
       ]], ["Học vụ", [
         ["/admin/profiles.html", "Hồ sơ"],
         ["/admin/subjects.html", "Môn học"],
@@ -374,7 +424,7 @@ function mount(options) {
       ]]].map(([title, items]) => `<p class="nav-label">${esc(title)}</p>${items.map(link).join("")}`).join("")
     : (NAV[me.role] || []).map(link).join("");
   document.body.innerHTML = `<a class="skip" href="#content">Tới nội dung</a>
-    <div class="shell${admin ? " admin" : ""}">
+    <div class="shell${wide ? " admin" : ""}">
     <aside class="sidebar">
       <div class="brand"><div class="seal" style="width:46px;height:46px;font-size:11px">THI</div>
         <div><strong>Phòng thi trực tuyến</strong><span>Đại học</span></div></div>
@@ -383,7 +433,7 @@ function mount(options) {
         <div class="aside-id">
           <span class="avatar small" id="side-avatar"></span>
           <div><div class="name">${esc(me.fullName)}</div>
-          <div class="role">${esc(roleLabel(me.role))}${me.role === "admin" ? " · cao nhất" : ""} · ${esc(me.username)}</div></div>
+          <div class="role">${esc(roleLabel(me.role))}${me.role === "admin" ? " · cao nhất" : me.role === "partner" ? " · dưới admin" : ""} · ${esc(me.username)}</div></div>
         </div>
         <div class="row-actions">
           <button class="btn small" id="change-pw" type="button">Đổi mật khẩu</button>

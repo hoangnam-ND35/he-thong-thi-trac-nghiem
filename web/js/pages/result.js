@@ -1,5 +1,5 @@
 (async function () {
-  const me = await guard(["student", "lecturer", "admin"]);
+  const me = await guard(["student", "lecturer", "partner", "admin"]);
   if (!me) return;
   const attemptId = new URLSearchParams(location.search).get("attemptId");
   const ui = mount({ title: "Kết quả bài thi", me });

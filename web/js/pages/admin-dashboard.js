@@ -64,8 +64,16 @@
   };
 
   try {
-    const [data, ops] = await Promise.all([API.get("/api/dashboard/admin"), API.get("/api/health")]);
+    const [data, ops, upgrades] = await Promise.all([
+      API.get("/api/dashboard/admin"),
+      API.get("/api/health"),
+      API.get("/api/admin/teacher-upgrades")
+    ]);
     ui.content.innerHTML = `
+      <a class="card panel" href="/admin/upgrades.html" style="display:block;margin-bottom:16px">
+        <h2>Xét duyệt giáo viên</h2>
+        <p class="muted">${upgrades.length ? upgrades.length + " đơn CCCD đang chờ duyệt." : "Chưa có đơn chờ duyệt."} Bấm vào đây để duyệt hoặc từ chối.</p>
+      </a>
       <div class="stats">
         <a class="card stat" href="/admin/profiles.html"><span>Người dùng</span><b>${data.users}</b><small>${data.students} học sinh · ${data.lecturers} giáo viên</small></a>
         <a class="card stat" href="/lecturer/exams.html"><span>Kỳ thi</span><b>${data.exams}</b><small>${data.attempts || 0} lượt làm bài</small></a>

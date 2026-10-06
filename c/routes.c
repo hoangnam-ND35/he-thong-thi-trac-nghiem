@@ -4,6 +4,10 @@ void register_routes(void) {
     http_add_route("GET", "/api/health", route_health);
     http_add_route("POST", "/api/admin/backup", route_backup);
     http_add_route("GET", "/api/brand", route_brand_get);
+    http_add_route("GET", "/api/package", route_package_get);
+    http_add_route("PUT", "/api/partner/package", route_package_put);
+    http_add_route("GET", "/api/partner/orders", route_orders_list);
+    http_add_route("POST", "/api/partner/orders", route_order_pay);
     http_add_route("PUT", "/api/admin/brand", route_brand_put);
     http_add_route("GET", "/api/admin/settings", route_settings_get);
     http_add_route("PUT", "/api/admin/settings", route_settings_put);
@@ -24,6 +28,10 @@ void register_routes(void) {
     http_add_route("GET", "/api/admin/teacher-upgrades", route_teacher_upgrades_list);
     http_add_route("POST", "/api/admin/teacher-upgrades/#/approve", route_teacher_upgrade_approve);
     http_add_route("POST", "/api/admin/teacher-upgrades/#/reject", route_teacher_upgrade_reject);
+    http_add_route("GET", "/api/admin/teacher-codes", route_teacher_codes_list);
+    http_add_route("POST", "/api/admin/teacher-codes", route_teacher_codes_create);
+    http_add_route("POST", "/api/admin/teacher-codes/#/disable", route_teacher_code_disable);
+    http_add_route("POST", "/api/profiles/me/teacher-upgrade-code", route_teacher_code_redeem);
     http_add_route("PUT", "/api/profiles/#", route_profile_update);
     http_add_route("POST", "/api/profiles/#/disable", route_profile_disable);
     http_add_route("POST", "/api/profiles/#/enable", route_profile_enable);
@@ -59,6 +67,7 @@ void register_routes(void) {
     http_add_route("GET", "/api/exams/#/analysis", route_exam_analysis);
     http_add_route("GET", "/api/exams/#/results", route_exam_results);
     http_add_route("POST", "/api/exams/#/start", route_exam_start);
+    http_add_route("POST", "/api/practice/start", route_practice_start);
     http_add_route("GET", "/api/student/exams", route_student_exams);
     http_add_route("GET", "/api/attempts/#", route_attempt_paper);
     http_add_route("GET", "/api/attempts/#/time", route_attempt_time);

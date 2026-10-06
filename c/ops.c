@@ -168,6 +168,10 @@ void route_health(Request* request, Response* response) {
     reply_json(response, &w);
 }
 
+int package_on(const char* key) {
+    return setting_int(key, 1) != 0;
+}
+
 int setting_int(const char* key, int fallback) {
     sqlite3_stmt* stmt = db_prep("SELECT value FROM system_settings WHERE key=?");
     int value = fallback;
@@ -378,7 +382,7 @@ void route_brand_put(Request* request, Response* response) {
     char theme[16];
     const char* logo = js_str(request->json, "logo", "");
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     trim_copy(name, sizeof(name), js_str(request->json, "schoolName", ""));
     trim_copy(short_name, sizeof(short_name), js_str(request->json, "schoolShort", ""));
     trim_copy(level, sizeof(level), js_str(request->json, "level", "university"));
@@ -538,5 +542,170 @@ void route_backup(Request* request, Response* response) {
     audit_add(actor.user_id, "BACKUP", "Sao lưu cơ sở dữ liệu", request->ip);
     reply_begin(&w);
     write_health(&w);
+    reply_json(response, &w);
+}
+
+static void write_package(W* w) {
+    w_obj(w);
+    w_key(w, "exam");
+    w_bool(w, package_on("pkgExam"));
+    w_key(w, "question");
+    w_bool(w, package_on("pkgQuestion"));
+    w_key(w, "result");
+    w_bool(w, package_on("pkgResult"));
+    w_key(w, "upgrade");
+    w_bool(w, package_on("pkgUpgrade"));
+    w_end(w);
+}
+
+void route_package_get(Request* request, Response* response) {
+    Actor actor;
+    W w;
+    if (!require_user(request, response, &actor)) return;
+    reply_begin(&w);
+    write_package(&w);
+    reply_json(response, &w);
+}
+
+void route_package_put(Request* request, Response* response) {
+    Actor actor;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    put_setting("pkgExam", js_bool(request->json, "exam", 1));
+    put_setting("pkgQuestion", js_bool(request->json, "question", 1));
+    put_setting("pkgResult", js_bool(request->json, "result", 1));
+    put_setting("pkgUpgrade", js_bool(request->json, "upgrade", 1));
+    audit_add(actor.user_id, "SALE_PACKAGE", "Cập nhật gói chức năng bán cho trường", request->ip);
+    reply_begin(&w);
+    write_package(&w);
+    reply_json(response, &w);
+}
+
+static int feature_price(int exam, int question, int result, int upgrade) {
+    return exam * 8000000 + question * 4000000 + result * 3000000 + upgrade * 2000000;
+}
+
+static void write_order(W* w, sqlite3_stmt* stmt) {
+    w_obj(w);
+    w_key(w, "id");
+    w_num(w, db_int(stmt, 0));
+    w_key(w, "code");
+    w_str(w, db_text(stmt, 1));
+    w_key(w, "schoolName");
+    w_str(w, db_text(stmt, 2));
+    w_key(w, "buyerName");
+    w_str(w, db_text(stmt, 3));
+    w_key(w, "contact");
+    w_str(w, db_text(stmt, 4));
+    w_key(w, "method");
+    w_str(w, db_text(stmt, 5));
+    w_key(w, "amount");
+    w_num(w, db_int(stmt, 6));
+    w_key(w, "exam");
+    w_bool(w, db_int(stmt, 7));
+    w_key(w, "question");
+    w_bool(w, db_int(stmt, 8));
+    w_key(w, "result");
+    w_bool(w, db_int(stmt, 9));
+    w_key(w, "upgrade");
+    w_bool(w, db_int(stmt, 10));
+    w_key(w, "createdAt");
+    w_num(w, (double)db_i64(stmt, 11));
+    w_end(w);
+}
+
+void route_orders_list(Request* request, Response* response) {
+    Actor actor;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    stmt = db_prep(
+        "SELECT id, code, school_name, buyer_name, contact, method, amount, exam, question, result, upgrade, created_at "
+        "FROM package_orders ORDER BY id DESC");
+    reply_begin(&w);
+    w_arr(&w);
+    while (stmt && sqlite3_step(stmt) == SQLITE_ROW) write_order(&w, stmt);
+    sqlite3_finalize(stmt);
+    w_end(&w);
+    reply_json(response, &w);
+}
+
+void route_order_pay(Request* request, Response* response) {
+    Actor actor;
+    char buyer[160];
+    char contact[160];
+    char method[24];
+    char school[160];
+    char hex[12];
+    char code[40];
+    int exam, question, result, upgrade, amount;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    trim_copy(buyer, sizeof(buyer), js_str(request->json, "buyerName", ""));
+    trim_copy(contact, sizeof(contact), js_str(request->json, "contact", ""));
+    trim_copy(method, sizeof(method), js_str(request->json, "method", ""));
+    exam = js_bool(request->json, "exam", 0);
+    question = js_bool(request->json, "question", 0);
+    result = js_bool(request->json, "result", 0);
+    upgrade = js_bool(request->json, "upgrade", 0);
+    if (!buyer[0] || !contact[0]) {
+        reply_fail(response, 400, "Cần tên đơn vị mua và thông tin liên hệ");
+        return;
+    }
+    if (strcmp(method, "transfer") != 0 && strcmp(method, "cash") != 0) {
+        reply_fail(response, 400, "Chọn chuyển khoản hoặc tiền mặt");
+        return;
+    }
+    amount = feature_price(exam, question, result, upgrade);
+    if (amount <= 0) {
+        reply_fail(response, 400, "Chọn ít nhất một chức năng trong gói");
+        return;
+    }
+    setting_text("schoolName", school, sizeof(school), "Phòng thi trực tuyến");
+    random_hex(3, hex);
+    snprintf(code, sizeof(code), "GTB-%s", hex);
+    db_begin();
+    put_setting("pkgExam", exam);
+    put_setting("pkgQuestion", question);
+    put_setting("pkgResult", result);
+    put_setting("pkgUpgrade", upgrade);
+    stmt = db_prep(
+        "INSERT INTO package_orders(code, school_name, buyer_name, contact, method, amount, exam, question, result, upgrade, seller_id, created_at) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+    if (stmt) {
+        db_bind_text(stmt, 1, code);
+        db_bind_text(stmt, 2, school);
+        db_bind_text(stmt, 3, buyer);
+        db_bind_text(stmt, 4, contact);
+        db_bind_text(stmt, 5, method);
+        sqlite3_bind_int(stmt, 6, amount);
+        sqlite3_bind_int(stmt, 7, exam);
+        sqlite3_bind_int(stmt, 8, question);
+        sqlite3_bind_int(stmt, 9, result);
+        sqlite3_bind_int(stmt, 10, upgrade);
+        sqlite3_bind_int(stmt, 11, actor.user_id);
+        sqlite3_bind_int64(stmt, 12, now_sec());
+    }
+    if (!stmt || sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        db_rollback();
+        reply_fail(response, 500, "Không tạo được sản phẩm gói");
+        return;
+    }
+    sqlite3_finalize(stmt);
+    db_commit();
+    audit_add(actor.user_id, "PAY_PACKAGE", code, request->ip);
+    stmt = db_prep(
+        "SELECT id, code, school_name, buyer_name, contact, method, amount, exam, question, result, upgrade, created_at "
+        "FROM package_orders WHERE code=?");
+    if (stmt) db_bind_text(stmt, 1, code);
+    reply_begin(&w);
+    if (stmt && sqlite3_step(stmt) == SQLITE_ROW) write_order(&w, stmt);
+    else {
+        w_obj(&w);
+        w_end(&w);
+    }
+    sqlite3_finalize(stmt);
     reply_json(response, &w);
 }

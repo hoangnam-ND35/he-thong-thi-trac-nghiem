@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vào làm bài</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    body { margin: 0; background: #ebe4d6; }
+    .enter-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+    .enter-card { width: min(420px, 100%); text-align: center; padding: 28px 24px; }
+    .enter-card h1 { margin: 0 0 8px; font-family: var(--serif); font-size: 28px; }
+  </style>
+</head>
+<body>
+  <main class="enter-shell">
+    <section class="card enter-card" id="practice-box">
+      <h1>Đang vào bài làm...</h1>
+      <p class="muted" id="practice-status">Chuẩn bị đề và mở màn hình làm bài.</p>
+    </section>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/layout.js"></script>
+  <script src="/js/pages/exam-practice.js"></script>
+</body>
+</html>

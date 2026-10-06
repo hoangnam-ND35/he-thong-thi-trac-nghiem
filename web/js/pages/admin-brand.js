@@ -1,5 +1,5 @@
 (async function () {
-  const me = await guard(["admin"]);
+  const me = await guard(["admin", "partner"]);
   if (!me) return;
   const ui = mount({
     title: "Nhận diện trường",

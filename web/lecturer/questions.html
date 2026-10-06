@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ngân hàng câu hỏi</title>
   <link rel="stylesheet" href="/css/app.css">
+  <script>
+    (function () {
+      var ids = new URLSearchParams(location.search).get("ids");
+      if (ids) location.replace("/exam/practice.html?ids=" + encodeURIComponent(ids));
+    })();
+  </script>
 </head>
 <body>
   <script src="/js/api.js"></script>

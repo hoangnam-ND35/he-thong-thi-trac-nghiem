@@ -3,7 +3,7 @@
 #include <string.h>
 
 static int staff(Request* request, Response* response, Actor* actor) {
-    return require_role(request, response, actor, "admin,lecturer");
+    return require_role(request, response, actor, "admin,partner,lecturer");
 }
 
 void route_departments_list(Request* request, Response* response) {
@@ -35,7 +35,7 @@ void route_departments_create(Request* request, Response* response) {
     char faculty[128];
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     trim_copy(name, sizeof(name), js_str(request->json, "name", ""));
     trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
     if (!name[0] || !faculty[0]) {
@@ -62,7 +62,7 @@ void route_department_update(Request* request, Response* response) {
     char faculty[128];
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     trim_copy(name, sizeof(name), js_str(request->json, "name", ""));
     trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
     stmt = db_prep("UPDATE departments SET name=?, faculty=? WHERE id=?");
@@ -111,7 +111,7 @@ void route_classes_create(Request* request, Response* response) {
     int department_id;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     trim_copy(name, sizeof(name), js_str(request->json, "name", ""));
     trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
     department_id = (int)js_num(request->json, "departmentId", 0);
@@ -138,7 +138,7 @@ void route_class_update(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     stmt = db_prep("UPDATE classes SET name=?, faculty=?, department_id=? WHERE id=?");
     db_bind_text(stmt, 1, js_str(request->json, "name", ""));
     db_bind_text(stmt, 2, js_str(request->json, "faculty", ""));
@@ -174,7 +174,7 @@ static void write_subject(W* w, sqlite3_stmt* stmt, const Actor* actor) {
     w_key(w, "lecturerName");
     w_str(w, db_text(stmt, 8));
     w_key(w, "canEdit");
-    w_bool(w, strcmp(actor->role, "admin") == 0 || lecturer_id == actor->lecturer_id);
+    w_bool(w, strcmp(actor->role, "admin") == 0 || strcmp(actor->role, "partner") == 0 || lecturer_id == actor->lecturer_id);
     w_end(w);
 }
 
@@ -212,7 +212,7 @@ static int save_subject(Request* request, Response* response, Actor* actor, int 
     trim_copy(description, sizeof(description), js_str(request->json, "description", ""));
     credits = (int)js_num(request->json, "credits", 3);
     department_id = (int)js_num(request->json, "departmentId", 0);
-    lecturer_id = strcmp(actor->role, "admin") == 0 ? (int)js_num(request->json, "lecturerId", 0) : actor->lecturer_id;
+    lecturer_id = (strcmp(actor->role, "admin") == 0 || strcmp(actor->role, "partner") == 0) ? (int)js_num(request->json, "lecturerId", 0) : actor->lecturer_id;
     if (!code[0] || !name[0] || credits < 1 || credits > 10) {
         reply_fail(response, 400, "Thông tin môn học chưa hợp lệ");
         return 0;

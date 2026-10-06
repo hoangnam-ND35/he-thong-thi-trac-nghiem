@@ -1,7 +1,4 @@
 @echo off
+REM Ban cu: gio chi goi server nen roi mo trinh duyet.
 cd /d "%~dp0"
-if not exist build\online_exam.exe (
-  call build.bat
-  if errorlevel 1 exit /b 1
-)
-build\online_exam.exe %*
+wscript.exe "%~dp0mo-web.vbs"

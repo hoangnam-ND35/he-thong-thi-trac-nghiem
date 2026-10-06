@@ -240,6 +240,33 @@ CREATE TABLE IF NOT EXISTS teacher_upgrades (
   reviewed_at INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS package_orders (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  school_name TEXT NOT NULL,
+  buyer_name TEXT NOT NULL,
+  contact TEXT NOT NULL,
+  method TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  exam INTEGER NOT NULL,
+  question INTEGER NOT NULL,
+  result INTEGER NOT NULL,
+  upgrade INTEGER NOT NULL,
+  seller_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS teacher_codes (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  max_uses INTEGER NOT NULL DEFAULT 1,
+  used_count INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_matrix_exam ON exam_matrix(exam_id);
 CREATE INDEX IF NOT EXISTS idx_events_attempt ON exam_events(attempt_id, kind);

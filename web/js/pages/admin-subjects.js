@@ -1,10 +1,10 @@
 (async function () {
-  const me = await guard(["admin", "lecturer"]);
+  const me = await guard(["admin", "partner", "lecturer"]);
   if (!me) return;
-  const isAdmin = me.role === "admin";
+  const isAdmin = me.role === "admin" || me.role === "partner";
   const ui = mount({
     title: "Môn học",
-    lead: isAdmin ? "Khoa, bộ môn, lớp và môn học giao cho giáo viên. Chỉ admin tạo được khoa và lớp." : "Giáo viên chỉ thấy môn mình phụ trách.",
+    lead: isAdmin ? "Khoa, bộ môn, lớp và môn học. Admin và đối tác tạo được khoa và lớp." : "Giáo viên chỉ thấy môn mình phụ trách.",
     me
   });
   let departments = [];
@@ -34,16 +34,18 @@
       <div class="grid-2">
         <section class="card panel"><h2>Bộ môn</h2><form id="dep-form" class="stack">
           <label>Tên bộ môn<input name="name" required></label>
-          <label>Khoa<input name="faculty" placeholder="Tên khoa" required></label>
+          <label>Khoa<input name="faculty" list="faculty-suggest" placeholder="Gõ hoặc chọn khoa" required></label>
           <button class="btn" type="submit">Thêm bộ môn</button>
         </form>
         <div class="table-wrap"><table class="data"><tbody>${departments.map((row) => `<tr><td>${esc(row.name)}</td><td class="muted">${esc(row.faculty)}</td></tr>`).join("") || "<tr><td>Chưa có bộ môn</td></tr>"}</tbody></table></div></section>
         <section class="card panel"><h2>Lớp</h2><form id="class-form" class="stack">
-          <label>Tên lớp<input name="name" required></label>
-          <label>Khoa<input name="faculty" placeholder="Tên khoa" required></label>
+          <label>Tên lớp<input name="name" list="class-suggest" placeholder="Gõ tên lớp" required></label>
+          <label>Khoa<input name="faculty" list="faculty-suggest" placeholder="Gõ hoặc chọn khoa" required></label>
           <label>Bộ môn<select name="departmentId">${departments.map((row) => `<option value="${row.id}">${esc(row.name)}</option>`).join("")}</select></label>
           <button class="btn" type="submit">Thêm lớp</button>
         </form>
+        <datalist id="faculty-suggest">${Array.from(new Set([...departments, ...classes].map((row) => row.faculty).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi")).map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
+        <datalist id="class-suggest">${classes.map((row) => `<option value="${esc(row.name)}" label="${esc(row.faculty)}"></option>`).join("")}</datalist>
         <div class="table-wrap"><table class="data"><tbody>${classes.map((row) => `<tr><td>${esc(row.name)}</td><td class="muted">${esc(row.departmentName)} · ${esc(row.faculty)}</td></tr>`).join("") || "<tr><td>Chưa có lớp</td></tr>"}</tbody></table></div></section>
       </div>` : ""}
       <section class="card panel"><div class="toolbar"><h2 style="margin:0">Danh sách môn</h2>
@@ -63,16 +65,25 @@
       } catch (error) { toast(error.message, "bad"); }
     };
     const room = document.getElementById("class-form");
-    if (room) room.onsubmit = async (event) => {
-      event.preventDefault();
-      const data = Object.fromEntries(new FormData(room).entries());
-      data.departmentId = Number(data.departmentId);
-      try {
-        await API.post("/api/classes", data);
-        toast("Đã thêm lớp");
-        await load();
-      } catch (error) { toast(error.message, "bad"); }
-    };
+    if (room) {
+      room.name.addEventListener("change", () => {
+        const hit = classes.find((row) => row.name.toLowerCase() === room.name.value.trim().toLowerCase());
+        if (hit) {
+          room.faculty.value = hit.faculty;
+          room.departmentId.value = String(hit.departmentId);
+        }
+      });
+      room.onsubmit = async (event) => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(room).entries());
+        data.departmentId = Number(data.departmentId);
+        try {
+          await API.post("/api/classes", data);
+          toast("Đã thêm lớp");
+          await load();
+        } catch (error) { toast(error.message, "bad"); }
+      };
+    }
     const finder = document.getElementById("subject-q");
     if (finder) finder.oninput = () => {
       const query = finder.value.trim().toLowerCase();

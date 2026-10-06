@@ -150,7 +150,8 @@ int db_open(void) {
         "('schoolName','Phòng thi trực tuyến'),('schoolShort','THI'),('schoolLevel','university'),"
         "('schoolMotto','Trộn câu hỏi, trộn đáp án, tính giờ theo máy chủ và vẫn giữ bài khi mất kết nối.'),"
         "('schoolAddress',''),('schoolPhone',''),('schoolEmail',''),('schoolWebsite',''),"
-        "('schoolTheme','navy'),('schoolLogo','')");
+        "('schoolTheme','navy'),('schoolLogo',''),"
+        "('pkgExam','1'),('pkgQuestion','1'),('pkgResult','1'),('pkgUpgrade','1')");
     return 1;
 }
 

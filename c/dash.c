@@ -78,7 +78,7 @@ void route_dash_lecturer(Request* request, Response* response) {
     W upcoming;
     W subject_json;
     W w;
-    if (!require_role(request, response, &actor, "lecturer,admin")) return;
+    if (!require_role(request, response, &actor, "lecturer,admin,partner")) return;
     w_init(&ongoing);
     w_arr(&ongoing);
     w_init(&upcoming);
@@ -86,7 +86,7 @@ void route_dash_lecturer(Request* request, Response* response) {
     w_init(&subject_json);
     w_arr(&subject_json);
     subjects = db_prep("SELECT id, code, name FROM subjects WHERE (?=0 OR lecturer_id=?) ORDER BY code");
-    sqlite3_bind_int(subjects, 1, strcmp(actor.role, "admin") == 0 ? 0 : actor.lecturer_id);
+    sqlite3_bind_int(subjects, 1, strcmp(actor.role, "lecturer") == 0 ? actor.lecturer_id : 0);
     sqlite3_bind_int(subjects, 2, actor.lecturer_id);
     while (subjects && sqlite3_step(subjects) == SQLITE_ROW) {
         int subject_id = db_int(subjects, 0);
@@ -163,7 +163,7 @@ void route_dash_lecturer(Request* request, Response* response) {
     w_num(&w, scalar_int(
         "SELECT COUNT(*) FROM attempts a JOIN exams e ON e.id=a.exam_id JOIN subjects s ON s.id=e.subject_id "
         "WHERE a.status='IN_PROGRESS' AND (?=0 OR s.lecturer_id=?)",
-        strcmp(actor.role, "admin") == 0 ? 0 : actor.lecturer_id, actor.lecturer_id));
+        strcmp(actor.role, "lecturer") == 0 ? actor.lecturer_id : 0, actor.lecturer_id));
     w_end(&w);
     reply_json(response, &w);
     w_free(&ongoing);

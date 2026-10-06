@@ -30,7 +30,7 @@ const API = {
     const data = await response.json().catch(() => ({}));
     const publicPage = /\/(login|register)\.html$/.test(location.pathname);
     if (response.status === 401 && !publicPage) {
-      location.href = "/login.html";
+      location.href = typeof loginUrl === "function" ? loginUrl() : "/login.html";
     }
     if (!response.ok || data.ok === false) {
       throw new ApiError(data.error || "Lỗi máy chủ", response.status);

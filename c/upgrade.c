@@ -132,6 +132,10 @@ void route_teacher_upgrade_submit(Request* request, Response* response) {
     int existing = 0;
     int step = SQLITE_ERROR;
     if (!require_role(request, response, &actor, "student")) return;
+    if (!package_on("pkgUpgrade")) {
+        reply_fail(response, 403, "Trường chưa mua chức năng xác minh giáo viên");
+        return;
+    }
     trim_copy(cccd, sizeof(cccd), js_str(request->json, "cccd", ""));
     trim_copy(full_name, sizeof(full_name), js_str(request->json, "fullName", ""));
     trim_copy(code, sizeof(code), js_str(request->json, "lecturerCode", ""));
@@ -234,7 +238,7 @@ void route_teacher_upgrades_list(Request* request, Response* response) {
     Actor actor;
     sqlite3_stmt* stmt;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     stmt = db_prep(
         "SELECT t.id, t.user_id, u.username, t.cccd, t.full_name, t.lecturer_code, t.department, t.faculty, t.status, t.note, t.created_at "
         "FROM teacher_upgrades t JOIN users u ON u.id=t.user_id WHERE t.status='pending' ORDER BY t.created_at");
@@ -256,7 +260,7 @@ void route_teacher_upgrade_approve(Request* request, Response* response) {
     char faculty[128];
     char status[16];
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     stmt = db_prep("SELECT user_id, profile_id, lecturer_code, department, faculty, status FROM teacher_upgrades WHERE id=?");
     if (stmt) sqlite3_bind_int(stmt, 1, request->id);
     if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
@@ -338,7 +342,7 @@ void route_teacher_upgrade_reject(Request* request, Response* response) {
     char note[200];
     int user_id = 0;
     W w;
-    if (!require_role(request, response, &actor, "admin")) return;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
     trim_copy(note, sizeof(note), js_str(request->json, "note", ""));
     if (!note[0]) {
         reply_fail(response, 400, "Cần ghi lý do từ chối");
@@ -371,5 +375,256 @@ void route_teacher_upgrade_reject(Request* request, Response* response) {
     reply_begin(&w);
     w_obj(&w);
     w_end(&w);
+    reply_json(response, &w);
+}
+
+static void write_teacher_code(W* w, sqlite3_stmt* stmt) {
+    w_obj(w);
+    w_key(w, "id");
+    w_num(w, db_int(stmt, 0));
+    w_key(w, "code");
+    w_str(w, db_text(stmt, 1));
+    w_key(w, "maxUses");
+    w_num(w, db_int(stmt, 2));
+    w_key(w, "usedCount");
+    w_num(w, db_int(stmt, 3));
+    w_key(w, "note");
+    w_str(w, db_text(stmt, 4));
+    w_key(w, "status");
+    w_str(w, db_text(stmt, 5));
+    w_key(w, "createdAt");
+    w_num(w, (double)db_i64(stmt, 6));
+    w_end(w);
+}
+
+void route_teacher_codes_list(Request* request, Response* response) {
+    Actor actor;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    stmt = db_prep(
+        "SELECT id, code, max_uses, used_count, note, status, created_at "
+        "FROM teacher_codes ORDER BY id DESC");
+    reply_begin(&w);
+    w_arr(&w);
+    while (stmt && sqlite3_step(stmt) == SQLITE_ROW) write_teacher_code(&w, stmt);
+    sqlite3_finalize(stmt);
+    w_end(&w);
+    reply_json(response, &w);
+}
+
+static int teacher_code_ok(const char* code) {
+    size_t n = code ? strlen(code) : 0;
+    size_t i;
+    if (n < 4 || n > 32) return 0;
+    for (i = 0; i < n; i++) {
+        unsigned char ch = (unsigned char)code[i];
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.')) return 0;
+    }
+    return 1;
+}
+
+void route_teacher_codes_create(Request* request, Response* response) {
+    Actor actor;
+    char note[200];
+    char custom[40];
+    char hex[16];
+    char code[40];
+    int quantity;
+    int max_uses;
+    int i;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    if (!package_on("pkgUpgrade")) {
+        reply_fail(response, 403, "Trường chưa mua chức năng xác minh giáo viên");
+        return;
+    }
+    trim_copy(note, sizeof(note), js_str(request->json, "note", ""));
+    trim_copy(custom, sizeof(custom), js_str(request->json, "code", ""));
+    quantity = (int)js_num(request->json, "quantity", 1);
+    max_uses = (int)js_num(request->json, "maxUses", 1);
+    if (max_uses < 1 || max_uses > 100) {
+        reply_fail(response, 400, "Số lần dùng mỗi mã từ 1 đến 100");
+        return;
+    }
+    if (custom[0]) {
+        if (!teacher_code_ok(custom)) {
+            reply_fail(response, 400, "Mã tự nhập gồm 4 đến 32 ký tự: chữ, số, gạch ngang, gạch dưới hoặc dấu chấm");
+            return;
+        }
+        stmt = db_prep("SELECT COUNT(*) FROM teacher_codes WHERE upper(code)=upper(?)");
+        if (stmt) db_bind_text(stmt, 1, custom);
+        if (stmt && sqlite3_step(stmt) == SQLITE_ROW && db_int(stmt, 0) > 0) {
+            sqlite3_finalize(stmt);
+            reply_fail(response, 400, "Mã này đã tồn tại");
+            return;
+        }
+        sqlite3_finalize(stmt);
+        quantity = 1;
+        copy_str(code, sizeof(code), custom);
+    } else if (quantity < 1 || quantity > 20) {
+        reply_fail(response, 400, "Số mã tạo mỗi lần từ 1 đến 20");
+        return;
+    }
+    reply_begin(&w);
+    w_arr(&w);
+    for (i = 0; i < quantity; i++) {
+        if (!custom[0]) {
+            random_hex(4, hex);
+            snprintf(code, sizeof(code), "GV-%s", hex);
+        }
+        stmt = db_prep(
+            "INSERT INTO teacher_codes(code, max_uses, used_count, note, status, created_by, created_at) "
+            "VALUES(?,?,0,?,'active',?,?)");
+        if (!stmt) {
+            reply_fail(response, 500, "Lỗi dữ liệu");
+            return;
+        }
+        db_bind_text(stmt, 1, code);
+        sqlite3_bind_int(stmt, 2, max_uses);
+        db_bind_text(stmt, 3, note);
+        sqlite3_bind_int(stmt, 4, actor.user_id);
+        sqlite3_bind_int64(stmt, 5, now_sec());
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            sqlite3_finalize(stmt);
+            reply_fail(response, 500, "Không tạo được mã");
+            return;
+        }
+        sqlite3_finalize(stmt);
+        w_obj(&w);
+        w_key(&w, "code");
+        w_str(&w, code);
+        w_key(&w, "maxUses");
+        w_num(&w, max_uses);
+        w_key(&w, "note");
+        w_str(&w, note);
+        w_end(&w);
+    }
+    w_end(&w);
+    audit_add(actor.user_id, "CREATE_TEACHER_CODE", "Tạo mã nâng cấp giáo viên", request->ip);
+    reply_json(response, &w);
+}
+
+void route_teacher_code_disable(Request* request, Response* response) {
+    Actor actor;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "admin,partner")) return;
+    stmt = db_prep("UPDATE teacher_codes SET status='disabled' WHERE id=? AND status='active'");
+    if (stmt) sqlite3_bind_int(stmt, 1, request->id);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (sqlite3_changes(g_db) != 1) {
+        reply_fail(response, 404, "Không thấy mã còn hiệu lực");
+        return;
+    }
+    audit_add(actor.user_id, "DISABLE_TEACHER_CODE", "Tắt mã nâng cấp giáo viên", request->ip);
+    reply_begin(&w);
+    w_obj(&w);
+    w_end(&w);
+    reply_json(response, &w);
+}
+
+void route_teacher_code_redeem(Request* request, Response* response) {
+    Actor actor;
+    char upgrade_code[40];
+    char lecturer_code[40];
+    char department[128];
+    char faculty[128];
+    int code_id = 0;
+    sqlite3_stmt* stmt;
+    W w;
+    if (!require_role(request, response, &actor, "student")) return;
+    if (!package_on("pkgUpgrade")) {
+        reply_fail(response, 403, "Trường chưa mua chức năng xác minh giáo viên");
+        return;
+    }
+    trim_copy(upgrade_code, sizeof(upgrade_code), js_str(request->json, "upgradeCode", ""));
+    trim_copy(lecturer_code, sizeof(lecturer_code), js_str(request->json, "lecturerCode", ""));
+    trim_copy(department, sizeof(department), js_str(request->json, "department", ""));
+    trim_copy(faculty, sizeof(faculty), js_str(request->json, "faculty", ""));
+    if (!upgrade_code[0] || !code_ok(lecturer_code) || !department[0] || !faculty[0] || strlen(department) > 120 || strlen(faculty) > 120) {
+        reply_fail(response, 400, "Cần mã nâng cấp, mã giáo viên, bộ môn và khoa hợp lệ");
+        return;
+    }
+    stmt = db_prep("SELECT COUNT(*) FROM lecturers WHERE lecturer_code=?");
+    if (stmt) db_bind_text(stmt, 1, lecturer_code);
+    if (stmt && sqlite3_step(stmt) == SQLITE_ROW && db_int(stmt, 0) > 0) {
+        sqlite3_finalize(stmt);
+        reply_fail(response, 400, "Mã giáo viên đã tồn tại");
+        return;
+    }
+    sqlite3_finalize(stmt);
+    stmt = db_prep("SELECT id FROM teacher_codes WHERE upper(code)=upper(?) AND status='active' AND used_count < max_uses");
+    if (stmt) db_bind_text(stmt, 1, upgrade_code);
+    if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        reply_fail(response, 400, "Mã nâng cấp không đúng hoặc đã hết lượt");
+        return;
+    }
+    code_id = db_int(stmt, 0);
+    sqlite3_finalize(stmt);
+    db_begin();
+    stmt = db_prep("UPDATE teacher_codes SET used_count=used_count+1 WHERE id=? AND status='active' AND used_count < max_uses");
+    if (stmt) sqlite3_bind_int(stmt, 1, code_id);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (sqlite3_changes(g_db) != 1) {
+        db_rollback();
+        reply_fail(response, 400, "Mã nâng cấp không đúng hoặc đã hết lượt");
+        return;
+    }
+    stmt = db_prep("UPDATE users SET role='lecturer' WHERE id=? AND role='student'");
+    if (stmt) sqlite3_bind_int(stmt, 1, actor.user_id);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (sqlite3_changes(g_db) != 1) {
+        db_rollback();
+        reply_fail(response, 400, "Tài khoản không còn là học sinh");
+        return;
+    }
+    stmt = db_prep("UPDATE profiles SET role='lecturer' WHERE id=?");
+    if (stmt) sqlite3_bind_int(stmt, 1, actor.profile_id);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    stmt = db_prep("INSERT INTO lecturers(user_id, profile_id, lecturer_code, department, faculty, status) VALUES(?,?,?,?,?,'active')");
+    if (stmt) {
+        sqlite3_bind_int(stmt, 1, actor.user_id);
+        sqlite3_bind_int(stmt, 2, actor.profile_id);
+        db_bind_text(stmt, 3, lecturer_code);
+        db_bind_text(stmt, 4, department);
+        db_bind_text(stmt, 5, faculty);
+    }
+    if (!stmt || sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        db_rollback();
+        reply_fail(response, 400, "Không tạo được hồ sơ giáo viên");
+        return;
+    }
+    sqlite3_finalize(stmt);
+    stmt = db_prep(
+        "INSERT INTO teacher_upgrades(user_id, profile_id, cccd, full_name, lecturer_code, department, faculty, status, note, created_at, reviewed_at) "
+        "VALUES(?,?,?,?,?,?,?,'approved','Dùng mã nâng cấp',?,?) "
+        "ON CONFLICT(user_id) DO UPDATE SET lecturer_code=excluded.lecturer_code, department=excluded.department, faculty=excluded.faculty, "
+        "status='approved', note='Dùng mã nâng cấp', reviewed_at=excluded.reviewed_at, cccd=excluded.cccd, full_name=excluded.full_name");
+    if (stmt) {
+        sqlite3_bind_int(stmt, 1, actor.user_id);
+        sqlite3_bind_int(stmt, 2, actor.profile_id);
+        db_bind_text(stmt, 3, "CODE");
+        db_bind_text(stmt, 4, actor.full_name);
+        db_bind_text(stmt, 5, lecturer_code);
+        db_bind_text(stmt, 6, department);
+        db_bind_text(stmt, 7, faculty);
+        sqlite3_bind_int64(stmt, 8, now_sec());
+        sqlite3_bind_int64(stmt, 9, now_sec());
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
+    db_commit();
+    notify_user(actor.user_id, "Đã dùng mã nâng cấp. Tài khoản của bạn là giáo viên. Hãy tải lại trang.");
+    audit_add(actor.user_id, "REDEEM_TEACHER_CODE", "Dùng mã nâng cấp giáo viên", request->ip);
+    reply_begin(&w);
+    write_user(&w, actor.user_id);
     reply_json(response, &w);
 }

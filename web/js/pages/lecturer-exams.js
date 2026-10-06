@@ -1,5 +1,5 @@
 (async function () {
-  const me = await guard(["admin", "lecturer"]);
+  const me = await guard(["admin", "partner", "lecturer"]);
   if (!me) return;
   const ui = mount({ title: "Kỳ thi", me });
   let subjects = [];
@@ -31,7 +31,8 @@
         <h2 id="form-title">Tạo kỳ thi</h2>
         <form id="exam-form" class="stack">
           <label>Tên kỳ thi<input name="title" required></label>
-          <label>Môn học<select name="subjectId">${subjects.map((row) => `<option value="${row.id}">${esc(row.code)} · ${esc(row.name)}</option>`).join("")}</select></label>
+          <label>Môn học<select name="subjectId" required>${subjects.length ? subjects.map((row) => `<option value="${row.id}">${esc(row.code)} · ${esc(row.name)}</option>`).join("") : `<option value="">Chưa có môn được giao</option>`}</select></label>
+          ${subjects.length ? "" : `<p class="note bad">Tài khoản này chưa được giao môn. Admin hoặc đối tác mở Môn học và gán môn cho giáo viên.</p>`}
           <p id="bank" class="note">Chọn môn để xem số câu trong ngân hàng.</p>
           <label>Mô tả<textarea name="description"></textarea></label>
           <label>Mở đề<input name="startTime" type="datetime-local" required></label>
@@ -206,7 +207,11 @@
   }
 
   function shareExam(id) {
-    shareLink("Link kỳ thi", location.origin + "/student/dashboard.html?examId=" + id, "Học sinh đăng nhập rồi mở link này để vào đúng kỳ thi.");
+    shareLink(
+      "Link làm bài",
+      location.origin + "/exam/enter.html?examId=" + id,
+      "Học sinh bấm link này sẽ vào thẳng bài làm. Chưa đăng nhập thì hệ thống yêu cầu đăng nhập trước."
+    );
   }
 
   async function act(kind, id) {

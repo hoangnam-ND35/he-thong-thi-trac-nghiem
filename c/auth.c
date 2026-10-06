@@ -129,7 +129,7 @@ int require_role(Request* request, Response* response, Actor* actor, const char*
 
 int owns_subject(const Actor* actor, int subject_id) {
     if (!actor) return 0;
-    if (strcmp(actor->role, "admin") == 0) return scalar_int("SELECT COUNT(*) FROM subjects WHERE id=?", subject_id, -1) > 0;
+    if (strcmp(actor->role, "admin") == 0 || strcmp(actor->role, "partner") == 0) return scalar_int("SELECT COUNT(*) FROM subjects WHERE id=?", subject_id, -1) > 0;
     if (strcmp(actor->role, "lecturer") != 0) return 0;
     return scalar_int("SELECT COUNT(*) FROM subjects WHERE id=? AND lecturer_id=?", subject_id, actor->lecturer_id) > 0;
 }

@@ -7,7 +7,7 @@ Dim shell, fso, root, url, chrome
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 root = fso.GetParentFolderName(WScript.ScriptFullName)
-url = "http://127.0.0.1:8080/"
+url = "http://127.0.0.1:8080/login.html"
 
 shell.Run "wscript.exe """ & root & "\start-server.vbs""", 0, True
 WScript.Sleep 800

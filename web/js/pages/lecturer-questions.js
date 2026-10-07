@@ -394,10 +394,15 @@
       : "Giao bài " + ids.length + " câu đang xem");
   }
 
-  function sharePracticeLink(ids, title) {
+  async function sharePracticeLink(ids, title) {
+    await refreshPublicOrigin();
     const url = practiceUrl(ids);
+    const phoneHint = publicOriginCache && publicOriginCache !== location.origin
+      ? `<p class="note ok">Điện thoại cùng Wi-Fi mở link này (dùng IP máy chủ, không dùng 127.0.0.1).</p>`
+      : `<p class="note warn">Mở trang bằng IP máy trong Wi-Fi (vd. http://192.168.x.x:8080) rồi xuất link lại để điện thoại vào được.</p>`;
     const body = openModal(title, `
-      <p class="muted">Gửi link này cho học sinh. Mở ra sẽ thấy trang đăng nhập trước, đăng nhập xong vào thẳng bài làm.</p>
+      <p class="muted">Gửi link này cho học sinh. Mở ra <strong>bắt buộc đăng nhập</strong> trước. Nhập đúng tài khoản học sinh mới vào được bài làm.</p>
+      ${phoneHint}
       <label class="share-link-box">Link giao bài
         <input id="share-bank" readonly value="${esc(url)}">
       </label>

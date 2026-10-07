@@ -21,22 +21,24 @@
     return;
   }
 
+  const unlocked = sessionStorage.getItem("oes-assignment-ok") === here;
+  sessionStorage.removeItem("oes-assignment-ok");
+  if (!unlocked) {
+    location.replace(loginUrl(here));
+    return;
+  }
+
   let me = null;
   try {
     me = await API.get("/api/auth/me");
   } catch (error) {
-    location.href = loginUrl(here);
+    location.replace(loginUrl(here));
     return;
   }
 
   if (me.role !== "student") {
-    show("Link này dành cho học sinh. Hãy đăng xuất rồi đăng nhập tài khoản học sinh.", `
-      <button class="btn primary" id="switch-account" type="button">Đăng xuất để đổi tài khoản</button>
-      <a class="btn" href="${esc(roleHome(me.role))}">Về trang của tôi</a>`);
-    document.getElementById("switch-account").onclick = async () => {
-      try { await API.post("/api/auth/logout", {}); } catch (error) {}
-      location.href = loginUrl(here);
-    };
+    show("Phải đăng nhập tài khoản học sinh mới vào được bài thi.", `
+      <a class="btn primary" href="${esc(loginUrl(here))}">Đăng nhập học sinh</a>`);
     return;
   }
 
@@ -53,8 +55,7 @@
     location.replace("/exam/take.html?attemptId=" + attemptId);
   } catch (error) {
     show(error.message || "Không vào được bài thi.", `
-      <a class="btn primary" href="/student/dashboard.html?examId=${examId}">Xem danh sách kỳ thi</a>
-      <button class="btn" id="retry-enter" type="button">Thử lại</button>`);
-    document.getElementById("retry-enter").onclick = () => location.reload();
+      <a class="btn primary" href="${esc(loginUrl(here))}">Đăng nhập lại</a>
+      <a class="btn" href="/student/dashboard.html">Về kỳ thi của tôi</a>`);
   }
 })();

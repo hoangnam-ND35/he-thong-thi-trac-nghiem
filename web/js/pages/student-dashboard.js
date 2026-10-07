@@ -2,11 +2,18 @@
   const me = await guard(["student"]);
   if (!me) return;
   const ui = mount({ title: "Kỳ thi của tôi", me });
+
+  function unlockEnter(examId) {
+    const target = "/exam/enter.html?examId=" + examId;
+    sessionStorage.setItem("oes-assignment-ok", target);
+    location.href = target;
+  }
+
   try {
     const params = new URLSearchParams(location.search);
     const focusId = Number(params.get("examId") || 0);
     if (focusId > 0) {
-      location.replace("/exam/enter.html?examId=" + focusId);
+      location.replace(loginUrl("/exam/enter.html?examId=" + focusId));
       return;
     }
 
@@ -30,7 +37,7 @@
       }
       if (!row.canStart) return false;
       if (confirmStart && !(await confirmBox("Bắt đầu bài thi? Thời gian tính từ máy chủ ngay khi vào."))) return false;
-      location.href = "/exam/enter.html?examId=" + row.id;
+      unlockEnter(row.id);
       return true;
     }
 
@@ -47,7 +54,7 @@
       </section>` : ""}
       <section class="note">Bốn cơ chế của phòng thi: mỗi người một mã đề, đồng hồ lấy từ máy chủ, mất mạng vẫn lưu bài trên máy, hết giờ thì tự nộp kể cả khi chưa có mạng.</section>
       ${(dash.notifications || []).length ? `<section class="card panel"><h2>Thông báo</h2>${dash.notifications.map((row) => `<p>${esc(row.message)} <span class="muted">${esc(formatTime(row.createdAt))}</span></p>`).join("")}</section>` : ""}
-      <section class="card panel"><h2>Đang làm</h2><div class="card-list">${doing.map((row) => card(row, `<a class="btn primary" href="/exam/enter.html?examId=${row.id}">${row.needsFinalize ? "Đồng bộ bài" : "Làm tiếp"}</a>`)).join("") || "<p class='muted'>Không có bài đang mở.</p>"}</div></section>
+      <section class="card panel"><h2>Đang làm</h2><div class="card-list">${doing.map((row) => card(row, `<button class="btn primary" data-enter="${row.id}" type="button">${row.needsFinalize ? "Đồng bộ bài" : "Làm tiếp"}</button>`)).join("") || "<p class='muted'>Không có bài đang mở.</p>"}</div></section>
       <section class="card panel"><h2>Có thể bắt đầu</h2><div class="card-list">${ready.map((row) => card(row, `<button class="btn primary" data-start="${row.id}" type="button">Bắt đầu</button>`)).join("") || "<p class='muted'>Chưa có kỳ thi sẵn sàng.</p>"}</div></section>
       <section class="card panel"><h2>Sắp diễn ra</h2><div class="card-list">${upcoming.map((row) => card(row, "")).join("") || "<p class='muted'>Không có lịch sắp tới.</p>"}</div></section>
       <section class="card panel"><h2>Lịch sử</h2><div class="card-list">${history.map((row) => card(row, `<a class="btn" href="/exam/result.html?attemptId=${row.lastAttemptId}">Xem điểm</a>${row.canStart ? `<button class="btn primary" data-start="${row.id}" type="button">Thi lại</button>` : ""}`)).join("") || "<p class='muted'>Chưa có bài đã nộp.</p>"}</div></section>`;
@@ -55,6 +62,12 @@
     ui.content.querySelectorAll("[data-start]").forEach((button) => button.onclick = () => {
       const row = exams.find((item) => item.id === Number(button.dataset.start));
       if (row) goExam(row, { confirmStart: true });
+    });
+    ui.content.querySelectorAll("[data-enter]").forEach((button) => button.onclick = () => {
+      const row = exams.find((item) => item.id === Number(button.dataset.enter));
+      if (!row) return;
+      if (row.openAttemptId) location.href = "/exam/take.html?attemptId=" + row.openAttemptId;
+      else unlockEnter(row.id);
     });
   } catch (error) {
     ui.content.innerHTML = `<p class="note bad">${esc(error.message)}</p>`;

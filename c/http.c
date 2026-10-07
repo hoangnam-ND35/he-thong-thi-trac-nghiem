@@ -19,10 +19,12 @@
 #define OES_THREAD_CALL __stdcall
 #else
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 #define SOCKET int
@@ -57,6 +59,7 @@ typedef struct CacheItem {
 static CacheItem g_cache[48];
 static CRITICAL_SECTION g_cache_lock;
 static int g_cache_ready = 0;
+static int g_listen_port = 8080;
 
 void http_add_route(const char* method, const char* pattern, Handler handler) {
     if (g_route_count >= MAX_ROUTES) return;
@@ -109,9 +112,45 @@ void reply_raw(Response* response, int status, const char* type, char* body, int
 }
 
 void cookie_session(Response* response, const char* token, int max_age) {
+    const char* secure = "";
+    if (getenv("RENDER") || getenv("FORCE_SECURE_COOKIE")) secure = "; Secure";
     snprintf(response->extra + strlen(response->extra), sizeof(response->extra) - strlen(response->extra),
-             "Set-Cookie: session=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax\r\n",
-             token ? token : "", max_age);
+             "Set-Cookie: session=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s\r\n",
+             token ? token : "", max_age, secure);
+}
+
+int http_listen_port(void) {
+    return g_listen_port > 0 ? g_listen_port : 8080;
+}
+
+void http_write_lan_ips(W* w) {
+    char host[256];
+    struct addrinfo hints;
+    struct addrinfo* res = NULL;
+    struct addrinfo* p;
+    w_key(w, "port");
+    w_num(w, http_listen_port());
+    w_key(w, "lanIps");
+    w_arr(w);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if (gethostname(host, sizeof(host)) == 0 && getaddrinfo(host, NULL, &hints, &res) == 0) {
+        for (p = res; p; p = p->ai_next) {
+            char ip[64];
+            struct sockaddr_in* sa = (struct sockaddr_in*)p->ai_addr;
+            if (!sa) continue;
+#ifdef _WIN32
+            copy_str(ip, sizeof(ip), inet_ntoa(sa->sin_addr));
+#else
+            if (!inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip))) continue;
+#endif
+            if (!strncmp(ip, "127.", 4)) continue;
+            w_str(w, ip);
+        }
+        freeaddrinfo(res);
+    }
+    w_end(w);
 }
 
 static int match_route(const char* pattern, const char* path, int* id) {
@@ -461,11 +500,7 @@ int http_serve(int port) {
     }
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-#ifdef _WIN32
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-#else
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-#endif
     addr.sin_port = htons((unsigned short)port);
     if (bind(server, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
         fprintf(stderr, "Khong mo duoc cong %d\n", port);
@@ -473,11 +508,32 @@ int http_serve(int port) {
         return 0;
     }
     listen(server, 64);
-#ifdef _WIN32
+    g_listen_port = port;
     printf("Dang lang nghe http://127.0.0.1:%d\n", port);
+    {
+        char host[256];
+        struct addrinfo hints;
+        struct addrinfo* res = NULL;
+        struct addrinfo* p;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        if (gethostname(host, sizeof(host)) == 0 && getaddrinfo(host, NULL, &hints, &res) == 0) {
+            for (p = res; p; p = p->ai_next) {
+                char ip[64];
+                struct sockaddr_in* sa = (struct sockaddr_in*)p->ai_addr;
+                if (!sa) continue;
+#ifdef _WIN32
+                copy_str(ip, sizeof(ip), inet_ntoa(sa->sin_addr));
 #else
-    printf("Dang lang nghe cong %d\n", port);
+                inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
 #endif
+                if (!strncmp(ip, "127.", 4)) continue;
+                printf("Mo tren dien thoai/may khac (cung Wi-Fi): http://%s:%d\n", ip, port);
+            }
+            freeaddrinfo(res);
+        }
+    }
     fflush(stdout);
     for (;;) {
         SOCKET client = accept(server, NULL, NULL);

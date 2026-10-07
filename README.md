@@ -2,11 +2,16 @@
 
 Máy chủ viết bằng C, dữ liệu nằm trong SQLite (`data/exam.db`, lược đồ ở `sql/schema.sql`). Giao diện là các trang HTML, CSS và JavaScript tách riêng. Không cần cài SQL Server.
 
-## Chạy
+## Chạy trên máy
 
 1. Cài gcc (MinGW). Mở thư mục dự án.
 2. Chạy `build.bat` để biên dịch `build\online_exam.exe`.
-3. Chạy `run.bat`. Mở http://127.0.0.1:8080
+3. Chạy `run.bat` hoặc shortcut **Mo Phong thi**. Mở http://127.0.0.1:8080
+
+## Chạy online (Chrome + điện thoại mọi mạng)
+
+GitHub Pages chỉ host HTML tĩnh (như [Chợ Nhà Smart Food](https://hoangnam-nd35.github.io/chonha-smart-food/)).  
+Phòng thi cần máy chủ → xem **[DEPLOY.md](DEPLOY.md)** để đưa lên Render, có link `https://....onrender.com`.
 
 Tài khoản mẫu:
 

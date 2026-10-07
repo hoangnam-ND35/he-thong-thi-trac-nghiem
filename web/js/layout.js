@@ -60,10 +60,46 @@ function loginUrl(nextPath) {
   return "/login.html" + (next ? "?next=" + encodeURIComponent(next) : "");
 }
 
+let publicOriginCache = "";
+
+function pickLanIp(ips) {
+  const list = (ips || []).map(String).filter((ip) => ip && !ip.startsWith("127.") && !ip.startsWith("169.254."));
+  return list.find((ip) => /^192\.168\.(0|1)\.\d+$/.test(ip))
+    || list.find((ip) => /^192\.168\.\d+\.(?!1$)\d+$/.test(ip))
+    || list.find((ip) => /^10\./.test(ip))
+    || list.find((ip) => /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip))
+    || list[0]
+    || "";
+}
+
+function publicOrigin() {
+  if (location.hostname && location.hostname !== "127.0.0.1" && location.hostname !== "localhost") {
+    return location.origin;
+  }
+  return publicOriginCache || location.origin;
+}
+
+async function refreshPublicOrigin() {
+  try {
+    const health = await API.get("/api/health");
+    if (health.publicBaseUrl) {
+      publicOriginCache = String(health.publicBaseUrl).replace(/\/$/, "");
+      return publicOriginCache;
+    }
+    const ip = pickLanIp(health.lanIps || []);
+    const port = health.port || location.port || 8080;
+    if (ip) publicOriginCache = location.protocol + "//" + ip + ":" + port;
+  } catch (error) {
+    publicOriginCache = location.origin;
+  }
+  return publicOriginCache || location.origin;
+}
+
 function assignmentLoginUrl(targetPath) {
   const next = safeNextPath(targetPath);
-  if (!next) return location.origin + "/login.html";
-  return location.origin + "/login.html?next=" + encodeURIComponent(next);
+  const base = publicOrigin();
+  if (!next) return base + "/login.html";
+  return base + "/login.html?next=" + encodeURIComponent(next);
 }
 
 function isAssignmentNext(path) {
@@ -458,6 +494,7 @@ function mount(options) {
   </div>`;
   paintAvatar(document.getElementById("side-avatar"), me.avatar, (me.fullName || "?").slice(0, 1));
   loadBrand().then(applyBrand);
+  refreshPublicOrigin().catch(() => {});
   document.getElementById("logout").onclick = async () => {
     await API.post("/api/auth/logout", {});
     location.href = "/login.html";

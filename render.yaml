@@ -3,4 +3,8 @@ services:
     name: phong-thi-truc-tuyen
     runtime: docker
     plan: free
+    region: singapore
     healthCheckPath: /api/health
+    envVars:
+      - key: FORCE_SECURE_COOKIE
+        value: "1"

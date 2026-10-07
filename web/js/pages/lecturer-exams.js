@@ -206,11 +206,12 @@
     }
   }
 
-  function shareExam(id) {
+  async function shareExam(id) {
+    await refreshPublicOrigin();
     shareLink(
       "Link làm bài",
       assignmentLoginUrl("/exam/enter.html?examId=" + id),
-      "Học sinh mở link sẽ thấy trang đăng nhập trước. Đăng nhập xong vào thẳng bài làm."
+      "Mở link sẽ ra trang đăng nhập trước. Học sinh cùng Wi-Fi với máy chủ mới vào được. Phải nhập tài khoản học sinh."
     );
   }
 

@@ -32,6 +32,8 @@ void reply_begin(W* w);
 void reply_json(Response* response, W* w);
 void reply_raw(Response* response, int status, const char* type, char* body, int length, const char* filename);
 void cookie_session(Response* response, const char* token, int max_age);
+int http_listen_port(void);
+void http_write_lan_ips(W* w);
 int http_serve(int port);
 
 #endif

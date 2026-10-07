@@ -18,7 +18,8 @@ RUN gcc -c -O2 -w -DSQLITE_THREADSAFE=1 -DSQLITE_OMIT_LOAD_EXTENSION -D_GNU_SOUR
  && rm -rf c third_party sqlite3.o \
  && apt-get purge -y gcc libc6-dev \
  && apt-get autoremove -y \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /app/data /app/data/backups
 ENV PORT=8080
 EXPOSE 8080
 CMD ["/app/online_exam"]

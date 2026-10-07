@@ -80,6 +80,15 @@ void write_health(W* w) {
         setting_text("schoolName", school, sizeof(school), "Phòng thi trực tuyến");
         w_str(w, school);
     }
+    http_write_lan_ips(w);
+    {
+        const char* pub = getenv("RENDER_EXTERNAL_URL");
+        if (!pub || !pub[0]) pub = getenv("PUBLIC_BASE_URL");
+        if (pub && pub[0]) {
+            w_key(w, "publicBaseUrl");
+            w_str(w, pub);
+        }
+    }
     w_end(w);
 }
 

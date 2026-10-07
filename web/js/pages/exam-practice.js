@@ -24,22 +24,24 @@
     return;
   }
 
+  const unlocked = sessionStorage.getItem("oes-assignment-ok") === here;
+  sessionStorage.removeItem("oes-assignment-ok");
+  if (!unlocked) {
+    location.replace(loginUrl(here));
+    return;
+  }
+
   let me = null;
   try {
     me = await API.get("/api/auth/me");
   } catch (error) {
-    location.href = loginUrl(here);
+    location.replace(loginUrl(here));
     return;
   }
 
   if (me.role !== "student") {
-    show("Link làm bài dành cho học sinh. Đăng xuất rồi đăng nhập tài khoản học sinh.", `
-      <button class="btn primary" id="switch-account" type="button">Đăng xuất để đổi tài khoản</button>
-      <a class="btn" href="${esc(roleHome(me.role))}">Về trang của tôi</a>`);
-    document.getElementById("switch-account").onclick = async () => {
-      try { await API.post("/api/auth/logout", {}); } catch (error) {}
-      location.href = loginUrl(here);
-    };
+    show("Phải đăng nhập tài khoản học sinh mới làm được bài.", `
+      <a class="btn primary" href="${esc(loginUrl(here))}">Đăng nhập học sinh</a>`);
     return;
   }
 
@@ -49,16 +51,19 @@
   }
 
   try {
-    status.textContent = "Đang tạo đề với " + ids.length + " câu đã chọn...";
+    status.textContent = "Đang mở bài làm...";
     const data = await API.post("/api/practice/start", { questionIds: ids });
     const attemptId = data && data.attemptId;
     if (!attemptId) throw new Error("Không nhận được mã bài làm");
     location.replace("/exam/take.html?attemptId=" + attemptId);
   } catch (error) {
     show(error.message || "Không vào được bài làm.", `
-      <a class="btn primary" href="/student/dashboard.html">Về kỳ thi của tôi</a>
+      <a class="btn primary" href="${esc(loginUrl(here))}">Đăng nhập lại</a>
       <button class="btn" id="retry-practice" type="button">Thử lại</button>`);
     const retry = document.getElementById("retry-practice");
-    if (retry) retry.onclick = () => location.reload();
+    if (retry) retry.onclick = () => {
+      sessionStorage.setItem("oes-assignment-ok", here);
+      location.reload();
+    };
   }
 })();
